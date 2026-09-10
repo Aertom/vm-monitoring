@@ -1,25 +1,47 @@
-# Copier ce fichier en config.yaml et adapter les valeurs.
-listenAddr: ":8080"
-pollIntervalSeconds: 60
+# VM Monitoring - Configuration Example
+# Copy this file to config.yaml and adjust to your environment
 
-ssh:
-  user: "monitor"
-  privateKeyPath: "/etc/vm-monitor/ssh/id_ed25519"
-  port: 22
-  timeoutSeconds: 5
-
-# Inventaire statique utilisé tant qu'aucune découverte automatique
-# d'hyperviseur n'est activée (voir hypervisors.example.yaml).
-staticVMs:
+vms:
+  # Storage/Memory Nodes (sm)
   - id: "vm-sm-01"
-    hostname: "app-sm-prod-01"
-    ip: "10.0.1.10"
+    hostname: "sm-prod-01"
+    ip: "192.168.1.10"
+    hypervisor: "esx-01"
+
+  - id: "vm-sm-02"
+    hostname: "sm-prod-02"
+    ip: "192.168.1.11"
+    hypervisor: "esx-01"
+
+  # Compute Nodes (cm)
   - id: "vm-cm-01"
-    hostname: "app-cm-prod-01"
-    ip: "10.0.1.11"
+    hostname: "cm-prod-01"
+    ip: "192.168.1.20"
+    hypervisor: "esx-01"
+
+  - id: "vm-cm-02"
+    hostname: "cm-prod-02"
+    ip: "192.168.1.21"
+    hypervisor: "esx-02"
+
+  # Workstations (ws)
   - id: "vm-ws-01"
-    hostname: "app-ws-prod-01"
-    ip: "10.0.1.12"
+    hostname: "ws-prod-01"
+    ip: "192.168.1.30"
+    hypervisor: "esx-02"
+
+  - id: "vm-ws-02"
+    hostname: "ws-prod-02"
+    ip: "192.168.1.31"
+    hypervisor: "esx-02"
+
+  # Orchestration Agents (oa)
   - id: "vm-oa-01"
-    hostname: "app-oa-prod-01"
-    ip: "10.0.1.13"
+    hostname: "oa-prod-01"
+    ip: "192.168.1.40"
+    hypervisor: "esx-03"
+
+  - id: "vm-oa-02"
+    hostname: "oa-prod-02"
+    ip: "192.168.1.41"
+    hypervisor: "esx-03"
