@@ -1,24 +1,42 @@
-# Copier ce fichier en hypervisors.yaml et adapter les valeurs.
-# Ce fichier est optionnel : en son absence, seul l'inventaire statique de
-# config.yaml est utilisé. La découverte automatique (ESXi/AHV/KVM) sera
-# activée progressivement dans des commits ultérieurs.
+# VM Monitoring - Hypervisors Configuration Example
+# Copy this file to hypervisors.yaml and adjust to your environment
 
-esxi: []
-  # - name: "vcenter-prod"
-  #   url: "https://vcenter.example.local"
-  #   username: "svc-vm-monitor"
-  #   password: "changeme"
-  #   insecure: false
+hypervisors:
+  esx-01:
+    type: "esxi"
+    host: "192.168.0.10"
+    port: 22
+    username: "root"
+    password: "your-password-here"
+    # For production, use SSH key authentication or env vars
+    # keyfile: "/path/to/private/key"
 
-nutanix: []
-  # - name: "prism-prod"
-  #   url: "https://prism.example.local:9440"
-  #   username: "svc-vm-monitor"
-  #   password: "changeme"
-  #   insecure: false
+  esx-02:
+    type: "esxi"
+    host: "192.168.0.11"
+    port: 22
+    username: "root"
+    password: "your-password-here"
 
-kvm: []
-  # - name: "kvm-host-01"
-  #   host: "kvm01.example.local"
-  #   user: "svc-vm-monitor"
+  esx-03:
+    type: "esxi"
+    host: "192.168.0.12"
+    port: 22
+    username: "root"
+    password: "your-password-here"
+
+  # Example AHV hypervisor (Acropolis Hypervisor)
+  # ahv-01:
+  #   type: "ahv"
+  #   host: "192.168.0.20"
   #   port: 22
+  #   username: "root"
+  #   password: "your-password-here"
+
+  # Example KVM hypervisor
+  # kvm-01:
+  #   type: "kvm"
+  #   host: "192.168.0.30"
+  #   port: 22
+  #   username: "qemu"
+  #   password: "your-password-here"
