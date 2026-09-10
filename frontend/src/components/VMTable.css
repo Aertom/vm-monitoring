@@ -1,0 +1,110 @@
+.vm-table-container {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+}
+
+.vm-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.vm-header h2 {
+  margin: 0;
+  color: #333;
+}
+
+.family-filter {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.family-filter label {
+  font-weight: 600;
+  color: #555;
+}
+
+.family-filter select {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.vm-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.vm-table thead {
+  background-color: #f0f0f0;
+}
+
+.vm-table th {
+  padding: 12px;
+  text-align: left;
+  font-weight: 600;
+  border-bottom: 2px solid #ddd;
+}
+
+.vm-table td {
+  padding: 12px;
+  border-bottom: 1px solid #ddd;
+}
+
+.vm-table tbody tr {
+  transition: background-color 0.2s;
+}
+
+.vm-table tbody tr:hover {
+  background-color: #f9f9f9;
+}
+
+.vm-table tbody tr.status-available {
+  border-left: 4px solid #4caf50;
+}
+
+.vm-table tbody tr.status-checkedOut {
+  border-left: 4px solid #ff9800;
+}
+
+.vm-table tbody tr.status-error {
+  border-left: 4px solid #f44336;
+}
+
+.family-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: white;
+}
+
+.family-badge.family-sm {
+  background-color: #2196f3;
+}
+
+.family-badge.family-cm {
+  background-color: #9c27b0;
+}
+
+.family-badge.family-ws {
+  background-color: #ff5722;
+}
+
+.family-badge.family-oa {
+  background-color: #607d8b;
+}
+
+.family-badge.family-unknown {
+  background-color: #999;
+}
