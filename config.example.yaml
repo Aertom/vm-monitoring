@@ -1,0 +1,25 @@
+# Copier ce fichier en config.yaml et adapter les valeurs.
+listenAddr: ":8080"
+pollIntervalSeconds: 60
+
+ssh:
+  user: "monitor"
+  privateKeyPath: "/etc/vm-monitor/ssh/id_ed25519"
+  port: 22
+  timeoutSeconds: 5
+
+# Inventaire statique utilisé tant qu'aucune découverte automatique
+# d'hyperviseur n'est activée (voir hypervisors.example.yaml).
+staticVMs:
+  - id: "vm-sm-01"
+    hostname: "app-sm-prod-01"
+    ip: "10.0.1.10"
+  - id: "vm-cm-01"
+    hostname: "app-cm-prod-01"
+    ip: "10.0.1.11"
+  - id: "vm-ws-01"
+    hostname: "app-ws-prod-01"
+    ip: "10.0.1.12"
+  - id: "vm-oa-01"
+    hostname: "app-oa-prod-01"
+    ip: "10.0.1.13"
