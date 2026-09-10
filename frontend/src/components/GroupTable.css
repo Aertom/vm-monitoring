@@ -1,0 +1,95 @@
+.group-table-container {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+}
+
+.group-table-container h2 {
+  margin-bottom: 16px;
+  color: #333;
+}
+
+.group-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.group-table thead {
+  background-color: #f0f0f0;
+}
+
+.group-table th {
+  padding: 12px;
+  text-align: left;
+  font-weight: 600;
+  border-bottom: 2px solid #ddd;
+}
+
+.group-table td {
+  padding: 12px;
+  border-bottom: 1px solid #ddd;
+}
+
+.group-table tbody tr {
+  transition: background-color 0.2s;
+}
+
+.group-table tbody tr:hover {
+  background-color: #f9f9f9;
+}
+
+.group-table tbody tr.status-available {
+  border-left: 4px solid #4caf50;
+}
+
+.group-table tbody tr.status-checkedOut {
+  border-left: 4px solid #ff9800;
+}
+
+.group-table tbody tr.status-error {
+  border-left: 4px solid #f44336;
+}
+
+.action-cell {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.checkout-input-group {
+  display: flex;
+  gap: 8px;
+}
+
+.checkout-input-group input {
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  flex: 1;
+  min-width: 100px;
+}
+
+.btn-checkout {
+  background-color: #4caf50;
+  color: white;
+}
+
+.btn-checkout:hover:not(:disabled) {
+  background-color: #45a049;
+}
+
+.btn-checkin {
+  background-color: #ff9800;
+  color: white;
+}
+
+.btn-checkin:hover:not(:disabled) {
+  background-color: #e68900;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
