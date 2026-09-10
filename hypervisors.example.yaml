@@ -1,0 +1,24 @@
+# Copier ce fichier en hypervisors.yaml et adapter les valeurs.
+# Ce fichier est optionnel : en son absence, seul l'inventaire statique de
+# config.yaml est utilisé. La découverte automatique (ESXi/AHV/KVM) sera
+# activée progressivement dans des commits ultérieurs.
+
+esxi: []
+  # - name: "vcenter-prod"
+  #   url: "https://vcenter.example.local"
+  #   username: "svc-vm-monitor"
+  #   password: "changeme"
+  #   insecure: false
+
+nutanix: []
+  # - name: "prism-prod"
+  #   url: "https://prism.example.local:9440"
+  #   username: "svc-vm-monitor"
+  #   password: "changeme"
+  #   insecure: false
+
+kvm: []
+  # - name: "kvm-host-01"
+  #   host: "kvm01.example.local"
+  #   user: "svc-vm-monitor"
+  #   port: 22
