@@ -1,7 +1,8 @@
-// Command server démarre l'API HTTP de VM Monitor. Les VMs proviennent de
-// l'inventaire statique déclaré dans config.yaml (staticVMs) ; les versions
-// d'applications sont collectées en SSH dans les dossiers configurés par
-// famille (appDirs, défaut /opt) à chaque pollIntervalSeconds.
+// Command server démarre l'API HTTP de VM Monitor. Chaque cycle
+// (pollIntervalSeconds) : découverte automatique sur les hyperviseurs
+// configurés (hypervisors.yaml), fusion avec l'inventaire statique
+// (staticVMs, référence d'identité), puis collecte SSH par VM (versions
+// d'applications dans appDirs + /etc/hosts pour les groupes).
 package main
 
 import (
@@ -12,17 +13,20 @@ import (
 	"net/http"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/Aertom/vm-monitoring/backend/internal/api"
 	"github.com/Aertom/vm-monitoring/backend/internal/collector"
 	"github.com/Aertom/vm-monitoring/backend/internal/config"
+	"github.com/Aertom/vm-monitoring/backend/internal/inventory"
 	"github.com/Aertom/vm-monitoring/backend/internal/model"
 	"github.com/Aertom/vm-monitoring/backend/internal/store"
 )
 
 func main() {
 	configPath := flag.String("config", "config.yaml", "chemin du fichier de configuration")
+	hypervisorsPath := flag.String("hypervisors", "hypervisors.yaml", "chemin des hyperviseurs (absent = découverte désactivée)")
 	healthcheck := flag.Bool("healthcheck", false, "vérifie /healthz local et quitte (pour HEALTHCHECK Docker)")
 	healthURL := flag.String("health-url", "http://127.0.0.1:8080/healthz", "URL sondée par --healthcheck")
 	flag.Parse()
@@ -35,14 +39,25 @@ func main() {
 	if err != nil {
 		log.Fatalf("chargement config: %v", err)
 	}
+	hcfg, err := config.LoadHypervisors(*hypervisorsPath)
+	if err != nil {
+		log.Fatalf("chargement hyperviseurs: %v", err)
+	}
+	log.Printf("hyperviseurs: %d esxi, %d nutanix, %d kvm",
+		len(hcfg.ESXi), len(hcfg.Nutanix), len(hcfg.KVM))
 
 	st := store.New()
-	vms := buildStaticVMs(cfg)
-	st.ReplaceVMs(vms)
+	st.ReplaceVMs(buildStaticVMs(cfg))
 
-	go collectLoop(st, cfg, vms)
+	var lastReport atomic.Value
+	lastReport.Store(inventory.Report{At: time.Now().UTC(), Sources: map[string]int{}})
 
-	srv := &api.Server{Store: st}
+	go collectLoop(st, cfg, hcfg, &lastReport)
+
+	srv := &api.Server{Store: st, Discovery: func() inventory.Report {
+		rep, _ := lastReport.Load().(inventory.Report)
+		return rep
+	}}
 	handler := api.NewRouter(srv)
 
 	log.Printf("VM Monitor backend démarré sur %s", cfg.ListenAddr)
@@ -69,64 +84,79 @@ func runHealthcheck(url string) int {
 }
 
 // buildStaticVMs convertit l'inventaire statique de la config en VMs du store.
-// Aucune collecte SSH n'est effectuée ici : Status reste "unknown" et Family
-// est déduite du hostname, comme pour les VMs découvertes dynamiquement.
+// État initial avant le premier cycle : Status "unknown", Family déduite.
 func buildStaticVMs(cfg *config.Config) []model.VM {
-	vms := make([]model.VM, 0, len(cfg.StaticVMs))
-	now := time.Now().UTC()
-	for _, sv := range cfg.StaticVMs {
-		vms = append(vms, model.VM{
-			ID:         sv.ID,
-			Hostname:   sv.Hostname,
-			IP:         sv.IP,
-			Family:     model.DetectFamily(sv.Hostname),
-			Hypervisor: model.HypervisorStatic,
-			Status:     model.StatusUnknown,
-			LastSeen:   now,
-		})
-	}
-	return vms
+	return inventory.Merge(cfg.StaticVMs, nil)
 }
 
-// collectLoop rafraîchit les versions d'applications via SSH à chaque
-// pollIntervalSeconds. Sans clé SSH configurée, la collecte est désactivée.
-// ReplaceVMs préserve checkout et renommages d'un cycle à l'autre.
-func collectLoop(st *store.Store, cfg *config.Config, vms []model.VM) {
-	if cfg.SSH.PrivateKeyPath == "" {
-		log.Print("collecte versions désactivée (ssh.privateKeyPath vide)")
-		return
-	}
-	dirsByID := make(map[string][]string, len(cfg.StaticVMs))
-	for _, sv := range cfg.StaticVMs {
-		dirsByID[sv.ID] = collector.DirsForFamily(cfg, string(model.DetectFamily(sv.Hostname)))
-	}
-	collectAll(st, cfg, vms, dirsByID)
+// collectLoop exécute un cycle complet (découverte + fusion + collecte SSH)
+// immédiatement puis à chaque pollIntervalSeconds. ReplaceVMs préserve
+// checkout et renommages d'un cycle à l'autre.
+func collectLoop(st *store.Store, cfg *config.Config, hcfg *config.HypervisorsConfig, lastReport *atomic.Value) {
+	runCycle(st, cfg, hcfg, lastReport)
 	ticker := time.NewTicker(time.Duration(cfg.PollIntervalSeconds) * time.Second)
 	defer ticker.Stop()
 	for range ticker.C {
-		collectAll(st, cfg, vms, dirsByID)
+		runCycle(st, cfg, hcfg, lastReport)
 	}
 }
 
-func collectAll(st *store.Store, cfg *config.Config, vms []model.VM, dirsByID map[string][]string) {
+func runCycle(st *store.Store, cfg *config.Config, hcfg *config.HypervisorsConfig, lastReport *atomic.Value) {
+	timeout := time.Duration(cfg.PollIntervalSeconds) * time.Second
+	if timeout <= 0 || timeout > 5*time.Minute {
+		timeout = 60 * time.Second
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	discovered, rep := inventory.DiscoverAll(ctx, hcfg, cfg.SSH)
+	lastReport.Store(rep)
+	for _, e := range rep.Errors {
+		log.Printf("découverte: %s", e)
+	}
+	vms := inventory.Merge(cfg.StaticVMs, discovered)
+	if cfg.SSH.PrivateKeyPath == "" {
+		log.Print("collecte SSH désactivée (ssh.privateKeyPath vide)")
+		st.ReplaceVMs(vms)
+		return
+	}
+	collectAll(st, cfg, vms)
+	log.Printf("cycle: %d VMs (%d découvertes), %d groupes",
+		len(vms), len(discovered), len(st.ListGroups()))
+}
+
+func collectAll(st *store.Store, cfg *config.Config, vms []model.VM) {
+	// Instantané précédent : en cas d'échec SSH on conserve apps/hosts connus.
+	prev := make(map[string]model.VM, len(vms))
+	for _, vm := range st.ListVMs() {
+		prev[vm.ID] = vm
+	}
 	timeout := time.Duration(cfg.SSH.TimeoutSeconds) * time.Second
 	var wg sync.WaitGroup
 	for i := range vms {
 		wg.Add(1)
 		go func(vm *model.VM) {
 			defer wg.Done()
+			if vm.IP == "" {
+				return
+			}
 			ctx, cancel := context.WithTimeout(context.Background(), timeout)
 			defer cancel()
-			apps, err := collector.Collect(ctx, vm.IP, cfg.SSH, dirsByID[vm.ID])
+			data, err := collector.CollectFull(ctx, vm.IP, cfg.SSH, collector.DirsForFamily(cfg, string(vm.Family)))
 			vm.LastSeen = time.Now().UTC()
 			if err != nil {
 				vm.Status = model.StatusError
 				vm.LastError = err.Error()
+				if old, ok := prev[vm.ID]; ok {
+					vm.Apps = old.Apps
+					vm.EtcHosts = old.EtcHosts
+				}
 				return
 			}
 			vm.Status = model.StatusOK
 			vm.LastError = ""
-			vm.Apps = apps
+			vm.Apps = data.Apps
+			vm.EtcHosts = data.EtcHosts
 		}(&vms[i])
 	}
 	wg.Wait()

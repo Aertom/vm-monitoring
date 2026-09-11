@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/Aertom/vm-monitoring/backend/internal/inventory"
 	"github.com/Aertom/vm-monitoring/backend/internal/model"
 	"github.com/Aertom/vm-monitoring/backend/internal/store"
 )
@@ -183,6 +184,33 @@ func TestHealthz(t *testing.T) {
 	NewRouter(newTestServer()).ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("GET /healthz = %d", rec.Code)
+	}
+}
+
+func TestDiscovery(t *testing.T) {
+	srv := newTestServer()
+	req := httptest.NewRequest(http.MethodGet, "/api/discovery", nil)
+	rec := httptest.NewRecorder()
+	NewRouter(srv).ServeHTTP(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("sans Discovery = %d, attendu 404", rec.Code)
+	}
+
+	srv.Discovery = func() inventory.Report {
+		return inventory.Report{Sources: map[string]int{"esxi": 2}}
+	}
+	req = httptest.NewRequest(http.MethodGet, "/api/discovery", nil)
+	rec = httptest.NewRecorder()
+	NewRouter(srv).ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /api/discovery = %d", rec.Code)
+	}
+	var rep inventory.Report
+	if err := json.NewDecoder(rec.Body).Decode(&rep); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if rep.Sources["esxi"] != 2 {
+		t.Errorf("rapport incorrect: %+v", rep)
 	}
 }
 

@@ -18,6 +18,6 @@ COPY config.example.yaml /config.example.yaml
 COPY hypervisors.example.yaml /hypervisors.example.yaml
 EXPOSE 8080
 ENTRYPOINT ["/vm-monitoring-server"]
-CMD ["--config", "/config.yaml"]
+CMD ["--config", "/config.yaml", "--hypervisors", "/hypervisors.yaml"]
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s \
   CMD ["/vm-monitoring-server", "--healthcheck"]

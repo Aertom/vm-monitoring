@@ -31,3 +31,6 @@ frontend/dist/
 # Config files (local only)
 config.yaml
 hypervisors.yaml
+
+# Delivery binaire régénérable via ./package.sh (ne pas versionner les tars)
+# delivery/*.tar.gz

@@ -59,13 +59,43 @@ func shellQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
-// Collect se connecte en SSH à la VM et liste les dossiers donnés.
-// Un dossier absent est ignoré (pas d'erreur globale).
-func Collect(ctx context.Context, ip string, sshCfg config.SSHConfig, dirs []string) ([]model.AppVersion, error) {
-	if len(dirs) == 0 {
-		dirs = DefaultAppDirs()
+// ParseEtcHosts convertit la sortie de `cat /etc/hosts` en entrées
+// exploitables pour la reconstruction des groupes. Lignes vides,
+// commentaires, localhost et loopback ignorés ; seul le premier hostname
+// de chaque ligne est retenu.
+func ParseEtcHosts(catOutput string) []model.EtcHostsEntry {
+	var out []model.EtcHostsEntry
+	for _, line := range strings.Split(catOutput, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
+			continue
+		}
+		ip, hostname := fields[0], fields[1]
+		if hostname == "" || strings.EqualFold(hostname, "localhost") {
+			continue
+		}
+		if ip == "127.0.0.1" || ip == "::1" || strings.HasPrefix(ip, "127.") {
+			continue
+		}
+		out = append(out, model.EtcHostsEntry{IP: ip, Hostname: hostname})
 	}
-	key, err := os.ReadFile(sshCfg.PrivateKeyPath)
+	return out
+}
+
+// HostData regroupe tout ce que la collecte SSH rapporte pour une VM.
+type HostData struct {
+	Apps     []model.AppVersion
+	EtcHosts []model.EtcHostsEntry
+}
+
+// Dial établit une connexion SSH (clé privée) vers l'hôte donné.
+// Exporté pour les exécuteurs distants (ex: virsh via SSH vers un hôte KVM).
+func Dial(ctx context.Context, ip, user string, port int, keyPath string, timeout time.Duration) (*ssh.Client, error) {
+	key, err := os.ReadFile(keyPath)
 	if err != nil {
 		return nil, fmt.Errorf("clé ssh: %w", err)
 	}
@@ -73,11 +103,9 @@ func Collect(ctx context.Context, ip string, sshCfg config.SSHConfig, dirs []str
 	if err != nil {
 		return nil, fmt.Errorf("clé ssh invalide: %w", err)
 	}
-	port := sshCfg.Port
 	if port <= 0 {
 		port = 22
 	}
-	timeout := time.Duration(sshCfg.TimeoutSeconds) * time.Second
 	if timeout <= 0 {
 		timeout = 5 * time.Second
 	}
@@ -87,7 +115,7 @@ func Collect(ctx context.Context, ip string, sshCfg config.SSHConfig, dirs []str
 		return nil, fmt.Errorf("connexion ssh %s: %w", addr, err)
 	}
 	c, chans, reqs, err := ssh.NewClientConn(conn, addr, &ssh.ClientConfig{
-		User:            sshCfg.User,
+		User:            user,
 		Auth:            []ssh.AuthMethod{ssh.PublicKeys(signer)},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 		Timeout:         timeout,
@@ -96,21 +124,11 @@ func Collect(ctx context.Context, ip string, sshCfg config.SSHConfig, dirs []str
 		conn.Close()
 		return nil, fmt.Errorf("auth ssh %s: %w", addr, err)
 	}
-	client := ssh.NewClient(c, chans, reqs)
-	defer client.Close()
-
-	var apps []model.AppVersion
-	for _, dir := range dirs {
-		out, err := runLs(ctx, client, dir)
-		if err != nil {
-			continue
-		}
-		apps = append(apps, ParseAppVersions(out)...)
-	}
-	return apps, nil
+	return ssh.NewClient(c, chans, reqs), nil
 }
 
-func runLs(ctx context.Context, client *ssh.Client, dir string) (string, error) {
+// runCmd exécute une commande distante et retourne sa sortie combinée.
+func runCmd(ctx context.Context, client *ssh.Client, cmd string) (string, error) {
 	if err := ctx.Err(); err != nil {
 		return "", err
 	}
@@ -119,9 +137,47 @@ func runLs(ctx context.Context, client *ssh.Client, dir string) (string, error) 
 		return "", err
 	}
 	defer s.Close()
-	out, err := s.CombinedOutput("ls -1 -- " + shellQuote(dir))
+	out, err := s.CombinedOutput(cmd)
 	if err != nil {
-		return "", fmt.Errorf("ls %s: %w", dir, err)
+		return "", fmt.Errorf("%s: %w", cmd, err)
 	}
 	return string(out), nil
+}
+
+// CollectFull se connecte en SSH à la VM et rapporte versions
+// d'applications + entrées /etc/hosts. Un dossier absent ou un /etc/hosts
+// illisible n'échoue pas toute la collecte (données partielles).
+func CollectFull(ctx context.Context, ip string, sshCfg config.SSHConfig, dirs []string) (HostData, error) {
+	var data HostData
+	if len(dirs) == 0 {
+		dirs = DefaultAppDirs()
+	}
+	timeout := time.Duration(sshCfg.TimeoutSeconds) * time.Second
+	client, err := Dial(ctx, ip, sshCfg.User, sshCfg.Port, sshCfg.PrivateKeyPath, timeout)
+	if err != nil {
+		return data, err
+	}
+	defer client.Close()
+
+	for _, dir := range dirs {
+		out, err := runCmd(ctx, client, "ls -1 -- "+shellQuote(dir))
+		if err != nil {
+			continue
+		}
+		data.Apps = append(data.Apps, ParseAppVersions(out)...)
+	}
+	if out, err := runCmd(ctx, client, "cat /etc/hosts"); err == nil {
+		data.EtcHosts = ParseEtcHosts(out)
+	}
+	return data, nil
+}
+
+// Collect se connecte en SSH à la VM et liste les dossiers donnés.
+// Un dossier absent est ignoré (pas d'erreur globale).
+func Collect(ctx context.Context, ip string, sshCfg config.SSHConfig, dirs []string) ([]model.AppVersion, error) {
+	data, err := CollectFull(ctx, ip, sshCfg, dirs)
+	if err != nil {
+		return nil, err
+	}
+	return data.Apps, nil
 }

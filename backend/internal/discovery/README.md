@@ -28,29 +28,18 @@ Ces packages ont été développés de façon **autonome et additive** :
 
 | Package | Statut | Intégré à `api`/`store` |
 |---|---|---|
-| `esxi` | ✅ Fonctionnel, testé | ❌ Non |
-| `ahv`  | ✅ Fonctionnel, testé | ❌ Non |
-| `kvm`  | ✅ Fonctionnel, testé | ❌ Non |
+| `esxi` | ✅ Fonctionnel, testé | ✅ Oui (via `internal/inventory`) |
+| `ahv`  | ✅ Fonctionnel, testé | ✅ Oui (via `internal/inventory`) |
+| `kvm`  | ✅ Fonctionnel, testé | ✅ Oui (via `internal/inventory`) |
 
-Ces packages ne sont **pas encore branchés** dans le flux applicatif
-principal (`cmd/server/main.go`, `internal/api`, `internal/store`). Ils
-constituent la brique de collecte de données brutes par hyperviseur.
+Branchés dans `cmd/server/main.go` : `inventory.DiscoverAll` (parallèle,
+erreurs isolées) → `inventory.Merge` (statique = référence d'identité) →
+collecte SSH → `store.ReplaceVMs`. Dernier rapport sur `GET /api/discovery`.
 
-## Lot d'intégration à venir
+## Notes d'intégration
 
-Pour finaliser l'intégration, il faudra :
-
-1. Convertir les types `esxi.VM`, `ahv.VM`, `kvm.VM` vers le modèle
-   commun interne (`internal/model`), probablement via une interface
-   `discovery.Provider` commune exposant une méthode `Discover(ctx) ([]model.VM, error)`.
-2. Brancher ces providers dans le processus de collecte périodique
-   (probablement orchestré depuis `cmd/server/main.go` ou un composant
-   `internal/collector`).
-3. Persister les résultats via `internal/store`.
-4. Exposer/adapter les endpoints `internal/api` si nécessaire pour
-   déclencher une découverte à la demande ou en consulter le statut.
-
-Cette étape nécessite la connaissance exacte des signatures et structures
-existantes (`model.VM`, interface du `store`, routes `api`) afin de garantir
-un code strictement compatible et compilable dès le premier commit
-d'intégration.
+- Les types bruts (`esxi.VM`, `ahv.VM`, `kvm.VM`) sont normalisés en
+  `inventory.DiscoveredVM` puis fusionnés en `model.VM`.
+- L'authentification TLS `insecure` est honorée par `inventory` (client HTTP
+  dédié), car `esxi`/`ahv` ne la gèrent pas eux-mêmes.
+- KVM distant passe par SSH avec la même clé que les VMs (`ssh.*`).

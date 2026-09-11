@@ -33,6 +33,20 @@ func TestDefaultAppDirs(t *testing.T) {
 	}
 }
 
+func TestParseEtcHosts(t *testing.T) {
+	in := "# commentaire\n\n127.0.0.1 localhost\n::1 localhost\n" +
+		"10.0.0.1 sm-prod-01\n10.0.0.2 cm-prod-01 alias-cm\n" +
+		"malformée\n"
+	got := ParseEtcHosts(in)
+	want := []model.EtcHostsEntry{
+		{IP: "10.0.0.1", Hostname: "sm-prod-01"},
+		{IP: "10.0.0.2", Hostname: "cm-prod-01"},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("obtenu %+v, attendu %+v", got, want)
+	}
+}
+
 func TestDirsForFamily(t *testing.T) {
 	cfg := &config.Config{AppDirs: map[string][]string{
 		"cm": {"/opt", "/appli"},

@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
+	"github.com/Aertom/vm-monitoring/backend/internal/inventory"
 	"github.com/Aertom/vm-monitoring/backend/internal/model"
 	"github.com/Aertom/vm-monitoring/backend/internal/store"
 )
@@ -16,6 +17,8 @@ import (
 // Server regroupe les dépendances de l'API HTTP.
 type Server struct {
 	Store *store.Store
+	// Discovery retourne le dernier rapport de découverte (nil = non configuré).
+	Discovery func() inventory.Report
 }
 
 // NewRouter construit le routeur HTTP complet de l'application.
@@ -32,6 +35,7 @@ func NewRouter(s *Server) http.Handler {
 		r.Post("/groups/{id}/checkout", s.handleCheckout)
 		r.Post("/groups/{id}/checkin", s.handleCheckin)
 		r.Post("/groups/{id}/rename", s.handleRename)
+		r.Get("/discovery", s.handleDiscovery)
 	})
 	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
@@ -162,6 +166,14 @@ func (s *Server) handleRename(w http.ResponseWriter, r *http.Request) {
 	}
 	g, _ := s.Store.GetGroup(groupID)
 	writeJSON(w, http.StatusOK, s.enrichGroup(g))
+}
+
+func (s *Server) handleDiscovery(w http.ResponseWriter, r *http.Request) {
+	if s.Discovery == nil {
+		writeError(w, http.StatusNotFound, "découverte non configurée")
+		return
+	}
+	writeJSON(w, http.StatusOK, s.Discovery())
 }
 
 type groupResponse struct {
