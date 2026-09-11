@@ -61,4 +61,12 @@ func TestLoadExampleFiles(t *testing.T) {
 	if len(hcfg.ESXi) == 0 || len(hcfg.KVM) == 0 {
 		t.Fatalf("hypervisors.example.yaml devrait contenir esxi + kvm: %+v", hcfg)
 	}
+	for _, family := range []string{"sm", "cm", "ws", "oa", "unknown"} {
+		if len(cfg.AppDirs[family]) == 0 {
+			t.Fatalf("config.example.yaml devrait configurer appDirs.%s", family)
+		}
+	}
+	if len(cfg.AppDirs["cm"]) != 2 {
+		t.Fatalf("appDirs.cm attendu [/opt /appli], obtenu %v", cfg.AppDirs["cm"])
+	}
 }

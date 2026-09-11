@@ -3,7 +3,10 @@
 #   cp config.example.yaml config.yaml
 # Schéma attendu par backend/internal/config/config.go (Config) :
 #   listenAddr, pollIntervalSeconds, ssh{user,privateKeyPath,port,timeoutSeconds},
-#   staticVMs[{id,hostname,ip}]
+#   staticVMs[{id,hostname,ip}], appDirs{<famille>: [...]}
+# appDirs : dossiers scrutés en SSH par famille de VM pour les versions
+# (nom de dossier "appli1_1.2.3" -> appli "appli1" version "1.2.3").
+# Famille absente ou vide = ["/opt"].
 
 listenAddr: ":8080"
 pollIntervalSeconds: 60
@@ -14,6 +17,14 @@ ssh:
   port: 22
   timeoutSeconds: 5
 
+# Dossiers scrutés par famille (toutes les familles configurables ici)
+appDirs:
+  sm: ["/opt"]
+  cm: ["/opt", "/appli"]
+  ws: ["/opt"]
+  oa: ["/opt"]
+  unknown: ["/opt"]
+
 staticVMs:
   # Storage/Memory Nodes (sm)
   - id: "vm-sm-01"
@@ -23,7 +34,7 @@ staticVMs:
     hostname: "sm-prod-02"
     ip: "192.168.1.11"
 
-  # Compute Nodes (cm)
+  # Compute Nodes (cm) — 4 produits suivis dans /opt et /appli
   - id: "vm-cm-01"
     hostname: "cm-prod-01"
     ip: "192.168.1.20"

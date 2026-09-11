@@ -8,7 +8,15 @@ interface VMTableProps {
   loading: boolean;
 }
 
-type VMSortKey = 'hostname' | 'ip' | 'family' | 'status' | 'groupId' | 'inUseBy' | 'checkedOutAt';
+type VMSortKey = 'hostname' | 'ip' | 'family' | 'status' | 'groupId' | 'version' | 'inUseBy';
+
+const versionLabel = (vm: VM): string =>
+  (vm.apps ?? []).map((a) => (a.version ? `${a.name} ${a.version}` : a.name)).join(', ');
+
+const vmSortValue = (vm: VM, key: VMSortKey): string => {
+  if (key === 'version') return versionLabel(vm);
+  return vm[key] ?? '';
+};
 
 export const VMTable: React.FC<VMTableProps> = ({
   vms,
@@ -48,7 +56,7 @@ export const VMTable: React.FC<VMTableProps> = ({
 
   const sortedVMs = sortKey
     ? [...filteredVMs].sort((a, b) => {
-        const cmp = String(a[sortKey] ?? '').localeCompare(String(b[sortKey] ?? ''));
+        const cmp = vmSortValue(a, sortKey).localeCompare(vmSortValue(b, sortKey));
         return sortDir === 'asc' ? cmp : -cmp;
       })
     : filteredVMs;
@@ -79,6 +87,7 @@ export const VMTable: React.FC<VMTableProps> = ({
       ) : sortedVMs.length === 0 ? (
         <p>No VMs available</p>
       ) : (
+        <div className="table-scroll">
         <table className="vm-table">
           <thead>
             <tr>
@@ -87,8 +96,8 @@ export const VMTable: React.FC<VMTableProps> = ({
               {th('Family', 'family')}
               {th('Status', 'status')}
               {th('Group', 'groupId')}
+              {th('Version', 'version')}
               {th('In Use By', 'inUseBy')}
-              {th('Checked Out At', 'checkedOutAt')}
             </tr>
           </thead>
           <tbody>
@@ -101,18 +110,25 @@ export const VMTable: React.FC<VMTableProps> = ({
                     {vm.family}
                   </span>
                 </td>
-                <td>{vm.status}</td>
-                <td title={vm.groupId || ''}>{vm.groupId ? vm.groupId.slice(0, 8) : '-'}</td>
-                <td>{vm.inUseBy || '-'}</td>
-                <td>
-                  {vm.checkedOutAt
-                    ? new Date(vm.checkedOutAt).toLocaleString()
-                    : '-'}
+                <td><span className={`pill pill-${vm.status}`}>{vm.status}</span></td>
+                <td title={vm.groupId || ''}>{vm.groupId ? <span className="id-chip">{vm.groupId.slice(0, 8)}</span> : '-'}</td>
+                <td title={versionLabel(vm)}>
+                  {vm.apps?.length ? (
+                    vm.apps.map((app, i) => (
+                      <div key={i} className="app-version">
+                        {app.name}{app.version ? <span className="app-version-nb"> {app.version}</span> : null}
+                      </div>
+                    ))
+                  ) : (
+                    '-'
+                  )}
                 </td>
+                <td>{vm.inUseBy || '-'}</td>
               </tr>
             ))}
           </tbody>
         </table>
+        </div>
       )}
     </div>
   );

@@ -6,3 +6,8 @@ require (
 	github.com/go-chi/chi/v5 v5.0.12
 	gopkg.in/yaml.v3 v3.0.1
 )
+
+require (
+	golang.org/x/crypto v0.24.0
+	golang.org/x/sys v0.21.0 // indirect
+)

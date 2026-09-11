@@ -4,7 +4,17 @@ import { VMTable } from './VMTable';
 import { VM } from '../types';
 
 const vms: VM[] = [
-  { id: 'sm1', hostname: 'sm-prod-01', ip: '10.0.0.1', family: 'sm', status: 'ok' },
+  {
+    id: 'sm1',
+    hostname: 'sm-prod-01',
+    ip: '10.0.0.1',
+    family: 'sm',
+    status: 'ok',
+    apps: [
+      { name: 'appli1', version: '1.2.3' },
+      { name: 'appli2', version: '2.0' },
+    ],
+  },
   { id: 'cm1', hostname: 'cm-prod-01', ip: '10.0.0.2', family: 'cm', status: 'error' },
 ];
 
@@ -34,5 +44,12 @@ describe('VMTable', () => {
     expect(firstRow()).toContain('cm-prod-01');
     fireEvent.click(screen.getByRole('columnheader', { name: /hostname/i }));
     expect(firstRow()).toContain('sm-prod-01');
+  });
+
+  it('affiche les versions des applications', () => {
+    render(<VMTable vms={vms} families={['sm', 'cm']} loading={false} />);
+    expect(screen.getByText('appli1')).toBeInTheDocument();
+    expect(screen.getByText('1.2.3')).toBeInTheDocument();
+    expect(screen.queryByText(/Checked Out At/i)).not.toBeInTheDocument();
   });
 });

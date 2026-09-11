@@ -1,110 +1,140 @@
 .vm-table-container {
-  background: white;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  margin-bottom: 20px;
+  background: var(--card);
+  padding: 24px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  border: 1px solid rgba(37, 99, 235, 0.12);
+  margin-bottom: 24px;
 }
 
 .vm-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 18px;
   flex-wrap: wrap;
   gap: 16px;
 }
 
 .vm-header h2 {
   margin: 0;
-  color: #333;
+  color: var(--ink);
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  padding-left: 12px;
+  border-left: 4px solid var(--primary);
 }
 
 .family-filter {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   align-items: center;
 }
 
 .family-filter label {
   font-weight: 600;
-  color: #555;
+  font-size: 13px;
+  color: var(--muted);
 }
 
 .family-filter select {
-  padding: 8px 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  padding: 9px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
   font-size: 14px;
+  font-family: inherit;
   cursor: pointer;
+  background-color: #f8fafc;
+  color: var(--ink);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.vm-table {
-  width: 100%;
-  border-collapse: collapse;
+.family-filter select:hover {
+  border-color: var(--primary);
 }
 
-.vm-table thead {
-  background-color: #f0f0f0;
+.family-filter select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
 }
 
-.vm-table th {
-  padding: 12px;
-  text-align: left;
-  font-weight: 600;
-  border-bottom: 2px solid #ddd;
+.vm-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
-.vm-table td {
-  padding: 12px;
-  border-bottom: 1px solid #ddd;
+.vm-table thead th:hover {
+  color: var(--primary-dark);
 }
 
 .vm-table tbody tr {
-  transition: background-color 0.2s;
+  transition: background-color 0.15s ease;
 }
 
 .vm-table tbody tr:hover {
-  background-color: #f9f9f9;
+  background-color: #eff6ff;
 }
 
-.vm-table tbody tr.status-available {
-  border-left: 4px solid #4caf50;
+.vm-table tbody tr.status-available,
+.vm-table tbody tr.status-ok {
+  border-left: 4px solid #10b981;
 }
 
 .vm-table tbody tr.status-checkedOut {
-  border-left: 4px solid #ff9800;
+  border-left: 4px solid #f59e0b;
 }
 
 .vm-table tbody tr.status-error {
-  border-left: 4px solid #f44336;
+  border-left: 4px solid #f43f5e;
+}
+
+.vm-table tbody tr.status-unknown {
+  border-left: 4px solid #94a3b8;
 }
 
 .family-badge {
   display: inline-block;
-  padding: 4px 8px;
-  border-radius: 4px;
+  padding: 3px 12px;
+  border-radius: 999px;
   font-size: 12px;
-  font-weight: 600;
-  color: white;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .family-badge.family-sm {
-  background-color: #2196f3;
+  background-color: #dbeafe;
+  color: #1d4ed8;
 }
 
 .family-badge.family-cm {
-  background-color: #9c27b0;
+  background-color: #d1fae5;
+  color: #047857;
 }
 
 .family-badge.family-ws {
-  background-color: #ff5722;
+  background-color: #ffe4e6;
+  color: #be123c;
 }
 
 .family-badge.family-oa {
-  background-color: #607d8b;
+  background-color: #ffedd5;
+  color: #c2410c;
 }
 
 .family-badge.family-unknown {
-  background-color: #999;
+  background-color: #f1f5f9;
+  color: #64748b;
+}
+
+.app-version {
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.app-version-nb {
+  font-weight: 700;
+  color: var(--primary-dark);
 }

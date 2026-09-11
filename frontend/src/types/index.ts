@@ -6,6 +6,11 @@ export type GroupStatus = 'available' | 'checkedOut';
 
 export type Status = VMStatus | GroupStatus | 'error';
 
+export interface AppVersion {
+  name: string;
+  version: string;
+}
+
 export interface VM {
   id: string;
   hostname: string;
@@ -14,6 +19,7 @@ export interface VM {
   status: Status;
   hypervisor?: string;
   groupId?: string;
+  apps?: AppVersion[];
   inUseBy?: string;
   checkedOutAt?: string;
 }

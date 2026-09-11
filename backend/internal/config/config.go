@@ -23,6 +23,10 @@ type Config struct {
 	// StaticVMs est un inventaire statique de VMs utilisé en l'absence de
 	// découverte automatique activée (mode "commit initial").
 	StaticVMs []StaticVM `yaml:"staticVMs"`
+	// AppDirs associe chaque famille de VM (sm, cm, ws, oa, unknown) aux
+	// dossiers scrutés via SSH pour les versions d'applications.
+	// Famille absente ou vide = ["/opt"].
+	AppDirs map[string][]string `yaml:"appDirs"`
 }
 
 // SSHConfig regroupe les paramètres de connexion SSH par défaut.
@@ -91,6 +95,12 @@ func Load(path string) (*Config, error) {
 	}
 	if cfg.PollIntervalSeconds <= 0 {
 		cfg.PollIntervalSeconds = 60
+	}
+	if cfg.SSH.Port <= 0 {
+		cfg.SSH.Port = 22
+	}
+	if cfg.SSH.TimeoutSeconds <= 0 {
+		cfg.SSH.TimeoutSeconds = 5
 	}
 	return &cfg, nil
 }

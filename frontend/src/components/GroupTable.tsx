@@ -131,6 +131,7 @@ export const GroupTable: React.FC<GroupTableProps> = ({
       ) : sortedGroups.length === 0 ? (
         <p>No groups available</p>
       ) : (
+        <div className="table-scroll">
         <table className="group-table">
           <thead>
             <tr>
@@ -176,8 +177,8 @@ export const GroupTable: React.FC<GroupTableProps> = ({
                     </div>
                   ) : (
                     <>
-                      <strong>{group.name || group.id}</strong>
-                      {group.name && <div title={group.id}>{group.id}</div>}
+                      <strong className="group-name">{group.name || group.id}</strong>
+                      {group.name && <div className="group-id" title={group.id}>{group.id}</div>}
                       <button
                         aria-label={`Rename group ${group.name || group.id}`}
                         title="Rename group"
@@ -194,7 +195,7 @@ export const GroupTable: React.FC<GroupTableProps> = ({
                   )}
                 </td>
                 <td>{groupVMsLabel(group)}</td>
-                <td>{group.status}</td>
+                <td><span className={`pill pill-${group.status}`}>{group.status}</span></td>
                 <td>{group.inUseBy || '-'}</td>
                 <td>
                   {group.checkedOutAt
@@ -235,6 +236,7 @@ export const GroupTable: React.FC<GroupTableProps> = ({
             ))}
           </tbody>
         </table>
+        </div>
       )}
     </div>
   );
