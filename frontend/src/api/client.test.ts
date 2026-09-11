@@ -54,4 +54,11 @@ describe('apiService', () => {
     await expect(apiService.checkinGroup('g1')).resolves.toEqual(group);
     expect(mockPost).toHaveBeenCalledWith('/groups/g1/checkin', {});
   });
+
+  it('rename', async () => {
+    const group = { id: 'g1', name: 'prod' };
+    mockPost.mockResolvedValue({ data: group });
+    await expect(apiService.renameGroup('g1', 'prod')).resolves.toEqual(group);
+    expect(mockPost).toHaveBeenCalledWith('/groups/g1/rename', { name: 'prod' });
+  });
 });

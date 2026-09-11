@@ -70,4 +70,18 @@ export const apiService = {
       throw error;
     }
   },
+
+  // Rename a group (alias libre, ID inchangé)
+  async renameGroup(groupId: string, name: string): Promise<Group> {
+    try {
+      const response = await apiClient.post<Group>(
+        `/groups/${groupId}/rename`,
+        { name }
+      );
+      return response.data;
+    } catch (error) {
+      console.error(`Failed to rename group ${groupId}:`, error);
+      throw error;
+    }
+  },
 };

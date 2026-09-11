@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { VM, Group, Family } from './types';
+import React, { useEffect, useMemo, useState } from 'react';
+import { VM, Group, Family, enrichVMsWithCheckout } from './types';
 import { apiService } from './api/client';
 import { VMTable } from './components/VMTable';
 import { GroupTable } from './components/GroupTable';
@@ -41,6 +41,8 @@ const App: React.FC = () => {
     fetchData();
   };
 
+  const enrichedVMs = useMemo(() => enrichVMsWithCheckout(vms, groups), [vms, groups]);
+
   return (
     <div className="app">
       <header className="app-header">
@@ -60,7 +62,7 @@ const App: React.FC = () => {
           </div>
         )}
 
-        <VMTable vms={vms} families={families} loading={loading} />
+        <VMTable vms={enrichedVMs} families={families} loading={loading} />
         <GroupTable
           groups={groups}
           onGroupsUpdated={handleGroupsUpdated}

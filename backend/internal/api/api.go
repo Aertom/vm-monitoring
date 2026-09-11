@@ -31,6 +31,7 @@ func NewRouter(s *Server) http.Handler {
 		r.Get("/families", s.handleListFamilies)
 		r.Post("/groups/{id}/checkout", s.handleCheckout)
 		r.Post("/groups/{id}/checkin", s.handleCheckin)
+		r.Post("/groups/{id}/rename", s.handleRename)
 	})
 	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
@@ -128,6 +129,32 @@ func (s *Server) handleCheckin(w http.ResponseWriter, r *http.Request) {
 		switch err {
 		case store.ErrGroupNotFound:
 			writeError(w, http.StatusNotFound, err.Error())
+		default:
+			writeError(w, http.StatusInternalServerError, err.Error())
+		}
+		return
+	}
+	g, _ := s.Store.GetGroup(groupID)
+	writeJSON(w, http.StatusOK, s.enrichGroup(g))
+}
+
+type renameRequest struct {
+	Name string `json:"name"`
+}
+
+func (s *Server) handleRename(w http.ResponseWriter, r *http.Request) {
+	groupID := chi.URLParam(r, "id")
+	var req renameRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "corps JSON invalide")
+		return
+	}
+	if err := s.Store.Rename(groupID, req.Name); err != nil {
+		switch err {
+		case store.ErrGroupNotFound:
+			writeError(w, http.StatusNotFound, err.Error())
+		case store.ErrInvalidName:
+			writeError(w, http.StatusBadRequest, err.Error())
 		default:
 			writeError(w, http.StatusInternalServerError, err.Error())
 		}

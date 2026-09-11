@@ -84,6 +84,9 @@ type EtcHostsEntry struct {
 type Group struct {
 	// ID est un identifiant stable et déterministe du groupe (voir grouping.go).
 	ID string `json:"id"`
+	// Name est un alias libre défini par l'utilisateur (renommage).
+	// Vide si le groupe n'a jamais été renommé. Préservé d'un cycle à l'autre.
+	Name string `json:"name,omitempty"`
 	// Members associe chaque famille à l'ID de la VM occupant ce rôle dans le groupe.
 	Members map[Family]string `json:"members"`
 	// InUseBy est le nom de l'utilisateur ayant "checkout" ce groupe, vide si libre.

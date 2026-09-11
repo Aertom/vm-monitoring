@@ -185,3 +185,47 @@ func TestHealthz(t *testing.T) {
 		t.Fatalf("GET /healthz = %d", rec.Code)
 	}
 }
+
+func TestRename(t *testing.T) {
+	srv := newTestServer()
+	router := NewRouter(srv)
+	gid := srv.Store.ListGroups()[0].ID
+	url := "/api/groups/" + gid + "/rename"
+
+	req := httptest.NewRequest(http.MethodPost, url, bytes.NewBufferString(`{"name":"prod"}`))
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("rename = %d (%s)", rec.Code, rec.Body.String())
+	}
+	var g groupResponse
+	if err := json.NewDecoder(rec.Body).Decode(&g); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if g.Name != "prod" {
+		t.Errorf("Name=%q, attendu prod", g.Name)
+	}
+
+	for name, tc := range map[string]struct {
+		body string
+		want int
+	}{
+		"vide":          {`{}`, http.StatusBadRequest},
+		"nom vide":      {`{"name":"  "}`, http.StatusBadRequest},
+		"JSON invalide": {`{`, http.StatusBadRequest},
+	} {
+		req := httptest.NewRequest(http.MethodPost, url, bytes.NewBufferString(tc.body))
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		if rec.Code != tc.want {
+			t.Errorf("%s: rename = %d, attendu %d", name, rec.Code, tc.want)
+		}
+	}
+
+	req = httptest.NewRequest(http.MethodPost, "/api/groups/inexistant/rename", bytes.NewBufferString(`{"name":"x"}`))
+	rec = httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("rename inexistant = %d, attendu 404", rec.Code)
+	}
+}

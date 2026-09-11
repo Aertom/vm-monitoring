@@ -68,3 +68,32 @@ func TestConcurrentCheckout(t *testing.T) {
 	}
 	wg.Wait()
 }
+
+func TestRename(t *testing.T) {
+	s := New()
+	vms := []model.VM{{ID: "sm1", IP: "10.0.0.1", Family: model.FamilySM}}
+	s.ReplaceVMs(vms)
+	gid := s.ListGroups()[0].ID
+
+	if err := s.Rename("inexistant", "x"); err != ErrGroupNotFound {
+		t.Fatalf("attendu ErrGroupNotFound, obtenu %v", err)
+	}
+	for _, bad := range []string{"", "   ", string(make([]byte, 65))} {
+		if err := s.Rename(gid, bad); err != ErrInvalidName {
+			t.Fatalf("rename %q: attendu ErrInvalidName, obtenu %v", bad, err)
+		}
+	}
+	if err := s.Rename(gid, "  prod  "); err != nil {
+		t.Fatalf("rename: %v", err)
+	}
+	g, _ := s.GetGroup(gid)
+	if g.Name != "prod" {
+		t.Fatalf("Name=%q (espaces non rognés ?)", g.Name)
+	}
+
+	s.ReplaceVMs(vms)
+	g, _ = s.GetGroup(gid)
+	if g.Name != "prod" {
+		t.Fatalf("nom non préservé après ReplaceVMs: %q", g.Name)
+	}
+}

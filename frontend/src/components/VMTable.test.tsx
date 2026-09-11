@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { VMTable } from './VMTable';
 import { VM } from '../types';
@@ -23,5 +23,16 @@ describe('VMTable', () => {
     expect(screen.getByText(/Loading VMs/i)).toBeInTheDocument();
     rerender(<VMTable vms={[]} families={[]} loading={false} />);
     expect(screen.getByText(/No VMs available/i)).toBeInTheDocument();
+  });
+
+  it('trie par colonne au clic sur les en-têtes', () => {
+    render(<VMTable vms={vms} families={['sm', 'cm']} loading={false} />);
+    const table = screen.getByRole('table');
+    const firstRow = () => within(table).getAllByRole('row')[1].textContent;
+    expect(firstRow()).toContain('sm-prod-01');
+    fireEvent.click(screen.getByRole('columnheader', { name: /hostname/i }));
+    expect(firstRow()).toContain('cm-prod-01');
+    fireEvent.click(screen.getByRole('columnheader', { name: /hostname/i }));
+    expect(firstRow()).toContain('sm-prod-01');
   });
 });

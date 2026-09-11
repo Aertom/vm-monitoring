@@ -1,11 +1,11 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { GroupTable } from './GroupTable';
 import { apiService } from '../api/client';
 import { Group } from '../types';
 
 jest.mock('../api/client', () => ({
-  apiService: { checkoutGroup: jest.fn(), checkinGroup: jest.fn() },
+  apiService: { checkoutGroup: jest.fn(), checkinGroup: jest.fn(), renameGroup: jest.fn() },
 }));
 const mocked = apiService as jest.Mocked<typeof apiService>;
 
@@ -66,5 +66,36 @@ describe('GroupTable', () => {
     expect(screen.getByText(/Loading groups/i)).toBeInTheDocument();
     rerender(<GroupTable groups={[]} onGroupsUpdated={jest.fn()} loading={false} />);
     expect(screen.getByText(/No groups available/i)).toBeInTheDocument();
+  });
+
+  it('trie par colonne au clic sur les en-têtes', () => {
+    const reversed = [...groups].reverse();
+    render(<GroupTable groups={reversed} onGroupsUpdated={jest.fn()} loading={false} />);
+    const table = screen.getByRole('table');
+    const firstRow = () => within(table).getAllByRole('row')[1].textContent;
+    expect(firstRow()).toContain('g2');
+    fireEvent.click(screen.getByRole('columnheader', { name: /^Status/i }));
+    expect(firstRow()).toContain('g1');
+    fireEvent.click(screen.getByRole('columnheader', { name: /^Status/i }));
+    expect(firstRow()).toContain('g2');
+  });
+
+  it('renomme un groupe', async () => {
+    const onUpdated = jest.fn();
+    (mocked.renameGroup as jest.Mock).mockResolvedValue({});
+    render(<GroupTable groups={groups} onGroupsUpdated={onUpdated} loading={false} />);
+    fireEvent.click(screen.getByRole('button', { name: /Rename group g1/i }));
+    fireEvent.change(screen.getByLabelText('Group name'), { target: { value: 'prod' } });
+    fireEvent.click(screen.getByText('Save'));
+    await waitFor(() => expect(mocked.renameGroup).toHaveBeenCalledWith('g1', 'prod'));
+    expect(onUpdated).toHaveBeenCalled();
+  });
+
+  it('alerte si rename sans nom', () => {
+    render(<GroupTable groups={groups} onGroupsUpdated={jest.fn()} loading={false} />);
+    fireEvent.click(screen.getByRole('button', { name: /Rename group g1/i }));
+    fireEvent.click(screen.getByText('Save'));
+    expect(window.alert).toHaveBeenCalled();
+    expect(mocked.renameGroup).not.toHaveBeenCalled();
   });
 });

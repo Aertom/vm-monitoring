@@ -93,3 +93,16 @@ button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+.btn-rename {
+  background: none;
+  border: none;
+  cursor: pointer;
+  margin-left: 8px;
+  font-size: 14px;
+  color: #666;
+}
+
+.btn-rename:hover:not(:disabled) {
+  color: #000;
+}

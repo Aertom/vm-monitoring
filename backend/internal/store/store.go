@@ -4,6 +4,7 @@
 package store
 
 import (
+	"strings"
 	"sync"
 	"time"
 
@@ -28,8 +29,8 @@ func New() *Store {
 
 // ReplaceVMs remplace intégralement l'ensemble des VMs connues (typiquement
 // après un cycle de découverte+collecte), puis reconstruit les groupes à
-// partir des /etc/hosts collectés. Les statuts InUseBy/CheckedOutAt des
-// groupes existants sont préservés si le groupe reconstruit a le même ID.
+// partir des /etc/hosts collectés. Les statuts InUseBy/CheckedOutAt et l'alias
+// Name des groupes existants sont préservés si le groupe reconstruit a le même ID.
 func (s *Store) ReplaceVMs(vms []model.VM) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -46,6 +47,7 @@ func (s *Store) ReplaceVMs(vms []model.VM) {
 		if old, ok := s.groups[g.ID]; ok {
 			g.InUseBy = old.InUseBy
 			g.CheckedOutAt = old.CheckedOutAt
+			g.Name = old.Name
 		}
 		newGroups[g.ID] = g
 	}
@@ -96,6 +98,9 @@ var ErrGroupNotFound = &StoreError{"groupe introuvable"}
 // ErrGroupAlreadyInUse est retourné par Checkout si le groupe est déjà utilisé.
 var ErrGroupAlreadyInUse = &StoreError{"groupe déjà en cours d'utilisation"}
 
+// ErrInvalidName est retourné par Rename si l'alias est vide ou trop long (64 max).
+var ErrInvalidName = &StoreError{"nom invalide"}
+
 // StoreError est une erreur simple du package store.
 type StoreError struct{ msg string }
 
@@ -129,6 +134,23 @@ func (s *Store) Checkin(groupID string) error {
 	}
 	g.InUseBy = ""
 	g.CheckedOutAt = time.Time{}
+	s.groups[groupID] = g
+	return nil
+}
+
+// Rename définit l'alias libre d'un groupe (le ID déterministe est inchangé).
+func (s *Store) Rename(groupID, name string) error {
+	name = strings.TrimSpace(name)
+	if name == "" || len(name) > 64 {
+		return ErrInvalidName
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	g, ok := s.groups[groupID]
+	if !ok {
+		return ErrGroupNotFound
+	}
+	g.Name = name
 	s.groups[groupID] = g
 	return nil
 }
