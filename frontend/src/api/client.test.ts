@@ -55,6 +55,26 @@ describe('apiService', () => {
     expect(mockPost).toHaveBeenCalledWith('/groups/g1/checkin', {});
   });
 
+  it('same-origin appelle une URL relative', async () => {
+    const prev = process.env.REACT_APP_API_URL;
+    process.env.REACT_APP_API_URL = 'same-origin';
+    jest.resetModules();
+    try {
+      const freshAxios = require('axios');
+      freshAxios.create.mockReturnValue({ get: mockGet, post: mockPost });
+      const fresh = require('./client').apiService;
+      expect(freshAxios.create).toHaveBeenCalledWith(
+        expect.objectContaining({ baseURL: '/api' })
+      );
+      mockGet.mockResolvedValue({ data: [] });
+      await expect(fresh.getVMs()).resolves.toEqual([]);
+    } finally {
+      if (prev === undefined) delete process.env.REACT_APP_API_URL;
+      else process.env.REACT_APP_API_URL = prev;
+      jest.resetModules();
+    }
+  });
+
   it('rename', async () => {
     const group = { id: 'g1', name: 'prod' };
     mockPost.mockResolvedValue({ data: group });

@@ -1,0 +1,29 @@
+# vm-monitoring — backend Go + frontend nginx.
+# Prérequis : cp config.example.yaml config.yaml (adapté), puis :
+#   podman-compose up -d --build   (ou: pip install podman-compose)
+# Le frontend appelle l'API en relatif (/api/...) via le proxy nginx :
+# REACT_APP_API_URL=same-origin par défaut, rien à configurer côté navigateur.
+# Pour une API absolue (autre origine), exporter avant le build :
+#   REACT_APP_API_URL=https://api.ton-domaine.fr podman-compose up -d --build
+services:
+  backend:
+    build: .
+    image: localhost/vm-monitoring-backend:latest
+    volumes:
+      - ./config.yaml:/config.yaml:ro
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+    restart: unless-stopped
+
+  frontend:
+    image: localhost/vm-monitoring-frontend:latest
+    build:
+      context: ./frontend
+      args:
+        REACT_APP_API_URL: ${REACT_APP_API_URL:-same-origin}
+        PUBLIC_URL: /
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    depends_on:
+      - backend
+    restart: unless-stopped

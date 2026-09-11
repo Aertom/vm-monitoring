@@ -1,7 +1,10 @@
 import axios, { AxiosInstance } from 'axios';
 import { VM, Group, Family } from '../types';
 
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080';
+const RAW_API_URL = process.env.REACT_APP_API_URL;
+// 'same-origin' = appels relatifs (/api/...) via le nginx du compose (proxy /api).
+// Utile en prod mono-origine ; en dev local garder http://localhost:8080.
+const API_BASE_URL = RAW_API_URL === 'same-origin' ? '' : RAW_API_URL || 'http://localhost:8080';
 
 const apiClient: AxiosInstance = axios.create({
   baseURL: `${API_BASE_URL}/api`,
