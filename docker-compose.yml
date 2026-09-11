@@ -3,6 +3,7 @@
 # hypervisors.yaml (adaptés), puis : podman-compose up -d --build
 # (ou: pip install podman-compose). hypervisors.yaml absent = découverte
 # désactivée (statique seul).
+# Réseau dédié + IP fixe backend : aucun DNS requis (prod sans DNS OK).
 # Le frontend appelle l'API en relatif (/api/...) via le proxy nginx :
 # REACT_APP_API_URL=same-origin par défaut, rien à configurer côté navigateur.
 # Pour une API absolue (autre origine), exporter avant le build :
@@ -11,9 +12,12 @@ services:
   backend:
     build: .
     image: localhost/vm-monitoring-backend:latest
+    networks:
+      vmmon:
+        ipv4_address: 172.28.99.10
     volumes:
-      - ./config.yaml:/config.yaml:ro
-      - ./hypervisors.yaml:/hypervisors.yaml:ro
+      - ./config.yaml:/config.yaml:ro,z
+      - ./hypervisors.yaml:/hypervisors.yaml:ro,z
     ports:
       - "${BACKEND_PORT:-8080}:8080"
     restart: unless-stopped
@@ -25,8 +29,18 @@ services:
       args:
         REACT_APP_API_URL: ${REACT_APP_API_URL:-same-origin}
         PUBLIC_URL: /
+    networks:
+      - vmmon
+    environment:
+      BACKEND_UPSTREAM: 172.28.99.10:8080
     ports:
       - "${FRONTEND_PORT:-80}:80"
     depends_on:
       - backend
     restart: unless-stopped
+
+networks:
+  vmmon:
+    ipam:
+      config:
+        - subnet: 172.28.99.0/24

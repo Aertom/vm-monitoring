@@ -1,7 +1,8 @@
 # nginx du frontend : statique React + reverse-proxy /api/ vers le backend.
-# Le nom "backend" est résolu par le DNS interne du réseau compose.
+# BACKEND_UPSTREAM est substitué au démarrage (ex: 172.28.99.10:8080 ou
+# backend:8080 si DNS disponible). Aucun DNS requis avec une IP fixe.
 upstream vm_backend {
-  server backend:8080 max_fails=3 fail_timeout=30s;
+  server ${BACKEND_UPSTREAM} max_fails=3 fail_timeout=30s;
 }
 
 server {

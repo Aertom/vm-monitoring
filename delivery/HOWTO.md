@@ -59,6 +59,12 @@ curl http://localhost:80/api/families        # ["sm","cm","ws","oa"] via proxy
 curl http://localhost:8080/healthz           # {"status":"ok"} backend direct
 ```
 
+Réseau sans DNS : le compose crée un réseau dédié (`172.28.99.0/24`) et
+le frontend joint le backend par IP fixe (`172.28.99.10:8080`, variable
+`BACKEND_UPSTREAM`) — aucun DNS requis, ni `/etc/resolv.conf` fourni.
+Pour changer le sous-réseau, modifiez `subnet`, `ipv4_address` et
+`BACKEND_UPSTREAM` dans `docker-compose.yml`.
+
 Au premier démarrage, le frontend peut redémarrer une fois en attendant
 que `backend` soit résolu/démarré : normal (`restart: unless-stopped`).
 
@@ -81,3 +87,30 @@ podman load -i vm-monitoring-frontend.tar.gz
 podman-compose up -d
 ```
 `config.yaml` existant est conservé (monté en volume).
+
+## 6. Se connecter au frontend
+
+Depuis votre PC, ouvrez dans un navigateur :
+
+```text
+http://IP-OU-DOMAINE-DE-LA-PROD/
+```
+
+- Port `80` par défaut ; si vous avez lancé avec
+  `FRONTEND_PORT=8080` : `http://IP-OU-DOMAINE-DE-LA-PROD:8080/`.
+- Vous arrivez sur le dashboard : tableau des VMs (filtre par famille,
+  colonne Version si la collecte SSH est active) et tableau des groupes
+  (checkout/checkin, renommage au crayon).
+- Tableaux vides ? Normal si `staticVMs` est vide : renseignez vos VMs
+  dans `config.yaml` puis `podman-compose restart backend`.
+- Rien à configurer côté navigateur : le frontend appelle l'API en
+  relatif (`/api/...`) via nginx. Pour du HTTPS, placez votre
+  reverse-proxy (Caddy/nginx/traefik) devant le port frontend (voir §4).
+
+## Dépannage
+
+- `invalid syntax` sur `if isinstance(services := ...)` au lancement :
+  votre binaire `podman-compose` tourne sous Python 3.6 (trop vieux).
+  Contournement : `python3 -m podman_compose up -d` (avec un python ≥ 3.8,
+  vérifiez via `python3 --version`). Correctif durable : réinstallez
+  podman-compose avec un Python moderne (`pip3 install -U podman-compose`).

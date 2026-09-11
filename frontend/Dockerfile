@@ -18,6 +18,8 @@ ENV REACT_APP_API_URL=$REACT_APP_API_URL PUBLIC_URL=$PUBLIC_URL
 RUN npm run build
 
 FROM docker.io/library/nginx:1.27-alpine
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Template substitué au démarrage (BACKEND_UPSTREAM) : aucun DNS requis.
+ENV BACKEND_UPSTREAM=backend:8080
+COPY nginx.conf.template /etc/nginx/templates/default.conf.template
 COPY --from=builder /src/build /usr/share/nginx/html
 EXPOSE 80
