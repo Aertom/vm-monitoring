@@ -48,7 +48,7 @@ export const apiService = {
     try {
       const response = await apiClient.post<Group>(
         `/groups/${groupId}/checkout`,
-        { inUseBy }
+        { user: inUseBy, inUseBy }
       );
       return response.data;
     } catch (error) {

@@ -18,11 +18,11 @@ import (
 
 // VM représente une machine virtuelle KVM découverte via virsh.
 type VM struct {
-	ID         string
-	Name       string
-	State      string
-	VCPUs      int
-	MemoryKB   int64
+	ID       string
+	Name     string
+	State    string
+	VCPUs    int
+	MemoryKB int64
 }
 
 // CommandExecutor est l'interface minimale nécessaire à l'exécution des

@@ -6,8 +6,10 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/Aertom/vm-monitoring/backend/internal/api"
@@ -18,7 +20,13 @@ import (
 
 func main() {
 	configPath := flag.String("config", "config.yaml", "chemin du fichier de configuration")
+	healthcheck := flag.Bool("healthcheck", false, "vérifie /healthz local et quitte (pour HEALTHCHECK Docker)")
+	healthURL := flag.String("health-url", "http://127.0.0.1:8080/healthz", "URL sondée par --healthcheck")
 	flag.Parse()
+
+	if *healthcheck {
+		os.Exit(runHealthcheck(*healthURL))
+	}
 
 	cfg, err := config.Load(*configPath)
 	if err != nil {
@@ -35,6 +43,23 @@ func main() {
 	if err := http.ListenAndServe(cfg.ListenAddr, handler); err != nil {
 		log.Fatalf("serveur HTTP: %v", err)
 	}
+}
+
+// runHealthcheck sonde l'endpoint /healthz et retourne le code de sortie
+// adapté à un HEALTHCHECK Docker (0 = sain).
+func runHealthcheck(url string) int {
+	client := http.Client{Timeout: 3 * time.Second}
+	resp, err := client.Get(url)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "healthcheck: %v\n", err)
+		return 1
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		fmt.Fprintf(os.Stderr, "healthcheck: statut %d\n", resp.StatusCode)
+		return 1
+	}
+	return 0
 }
 
 // loadStaticVMs convertit l'inventaire statique de la config en VMs du store.

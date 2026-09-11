@@ -15,17 +15,18 @@ export const GroupTable: React.FC<GroupTableProps> = ({
   loading,
 }) => {
   const [actingGroupId, setActingGroupId] = useState<string | null>(null);
-  const [checkoutUser, setCheckoutUser] = useState<string>('');
+  const [userInputs, setUserInputs] = useState<Record<string, string>>({});
 
   const handleCheckout = async (groupId: string) => {
-    if (!checkoutUser.trim()) {
+    const user = (userInputs[groupId] || '').trim();
+    if (!user) {
       alert('Please enter a user name');
       return;
     }
     setActingGroupId(groupId);
     try {
-      await apiService.checkoutGroup(groupId, checkoutUser);
-      setCheckoutUser('');
+      await apiService.checkoutGroup(groupId, user);
+      setUserInputs((prev) => ({ ...prev, [groupId]: '' }));
       onGroupsUpdated();
     } catch (error) {
       alert(`Checkout failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -70,7 +71,11 @@ export const GroupTable: React.FC<GroupTableProps> = ({
               <tr key={group.id} className={`status-${group.status}`}>
                 <td>{group.id}</td>
                 <td>
-                  {group.vms.map((vm) => vm.hostname).join(', ') || 'N/A'}
+                  {group.vms?.length
+                    ? group.vms.map((vm) => vm.hostname).join(', ')
+                    : Object.entries(group.members || {})
+                        .map(([fam, id]) => `${fam}:${id}`)
+                        .join(', ') || 'N/A'}
                 </td>
                 <td>{group.status}</td>
                 <td>{group.inUseBy || '-'}</td>
@@ -85,8 +90,10 @@ export const GroupTable: React.FC<GroupTableProps> = ({
                       <input
                         type="text"
                         placeholder="User"
-                        value={checkoutUser}
-                        onChange={(e) => setCheckoutUser(e.target.value)}
+                        value={userInputs[group.id] || ''}
+                        onChange={(e) =>
+                          setUserInputs((prev) => ({ ...prev, [group.id]: e.target.value }))
+                        }
                         disabled={actingGroupId !== null}
                       />
                       <button

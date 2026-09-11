@@ -1,47 +1,48 @@
 # VM Monitoring - Configuration Example
-# Copy this file to config.yaml and adjust to your environment
+# Copier vers config.yaml (ignoré par git) et adapter à votre environnement :
+#   cp config.example.yaml config.yaml
+# Schéma attendu par backend/internal/config/config.go (Config) :
+#   listenAddr, pollIntervalSeconds, ssh{user,privateKeyPath,port,timeoutSeconds},
+#   staticVMs[{id,hostname,ip}]
 
-vms:
+listenAddr: ":8080"
+pollIntervalSeconds: 60
+
+ssh:
+  user: "monitor"
+  privateKeyPath: "/home/monitor/.ssh/id_ed25519"
+  port: 22
+  timeoutSeconds: 5
+
+staticVMs:
   # Storage/Memory Nodes (sm)
   - id: "vm-sm-01"
     hostname: "sm-prod-01"
     ip: "192.168.1.10"
-    hypervisor: "esx-01"
-
   - id: "vm-sm-02"
     hostname: "sm-prod-02"
     ip: "192.168.1.11"
-    hypervisor: "esx-01"
 
   # Compute Nodes (cm)
   - id: "vm-cm-01"
     hostname: "cm-prod-01"
     ip: "192.168.1.20"
-    hypervisor: "esx-01"
-
   - id: "vm-cm-02"
     hostname: "cm-prod-02"
     ip: "192.168.1.21"
-    hypervisor: "esx-02"
 
   # Workstations (ws)
   - id: "vm-ws-01"
     hostname: "ws-prod-01"
     ip: "192.168.1.30"
-    hypervisor: "esx-02"
-
   - id: "vm-ws-02"
     hostname: "ws-prod-02"
     ip: "192.168.1.31"
-    hypervisor: "esx-02"
 
   # Orchestration Agents (oa)
   - id: "vm-oa-01"
     hostname: "oa-prod-01"
     ip: "192.168.1.40"
-    hypervisor: "esx-03"
-
   - id: "vm-oa-02"
     hostname: "oa-prod-02"
     ip: "192.168.1.41"
-    hypervisor: "esx-03"

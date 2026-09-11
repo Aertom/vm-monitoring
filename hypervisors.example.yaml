@@ -1,42 +1,36 @@
 # VM Monitoring - Hypervisors Configuration Example
-# Copy this file to hypervisors.yaml and adjust to your environment
+# Copier vers hypervisors.yaml (ignoré par git) et adapter à votre environnement :
+#   cp hypervisors.example.yaml hypervisors.yaml
+# Schéma attendu par backend/internal/config/config.go (HypervisorsConfig) :
+#   esxi[{name,url,username,password,insecure}],
+#   nutanix[{name,url,username,password,insecure}],
+#   kvm[{name,host,user,port}]
+# Fichier optionnel : s'il est absent, la découverte auto est désactivée.
 
-hypervisors:
-  esx-01:
-    type: "esxi"
-    host: "192.168.0.10"
-    port: 22
+# Hôtes ESXi / vCenter (API REST https://<host>/rest/vcenter/vm)
+esxi:
+  - name: "esx-01"
+    url: "https://192.168.0.10"
     username: "root"
-    password: "your-password-here"
-    # For production, use SSH key authentication or env vars
-    # keyfile: "/path/to/private/key"
-
-  esx-02:
-    type: "esxi"
-    host: "192.168.0.11"
-    port: 22
+    password: "change-me"
+    insecure: true
+  - name: "esx-02"
+    url: "https://192.168.0.11"
     username: "root"
-    password: "your-password-here"
+    password: "change-me"
+    insecure: true
 
-  esx-03:
-    type: "esxi"
-    host: "192.168.0.12"
+# Clusters Nutanix AHV (API Prism https://<host>:9440)
+nutanix:
+  - name: "ahv-01"
+    url: "https://192.168.0.20:9440"
+    username: "admin"
+    password: "change-me"
+    insecure: true
+
+# Hôtes KVM/libvirt (via virsh, local ou SSH)
+kvm:
+  - name: "kvm-01"
+    host: "192.168.0.30"
+    user: "qemu"
     port: 22
-    username: "root"
-    password: "your-password-here"
-
-  # Example AHV hypervisor (Acropolis Hypervisor)
-  # ahv-01:
-  #   type: "ahv"
-  #   host: "192.168.0.20"
-  #   port: 22
-  #   username: "root"
-  #   password: "your-password-here"
-
-  # Example KVM hypervisor
-  # kvm-01:
-  #   type: "kvm"
-  #   host: "192.168.0.30"
-  #   port: 22
-  #   username: "qemu"
-  #   password: "your-password-here"

@@ -52,11 +52,11 @@ type HypervisorsConfig struct {
 
 // ESXiConfig décrit l'accès à un hôte ESXi ou un vCenter.
 type ESXiConfig struct {
-	Name       string `yaml:"name"`
-	URL        string `yaml:"url"`
-	Username   string `yaml:"username"`
-	Password   string `yaml:"password"`
-	Insecure   bool   `yaml:"insecure"`
+	Name     string `yaml:"name"`
+	URL      string `yaml:"url"`
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
+	Insecure bool   `yaml:"insecure"`
 }
 
 // NutanixConfig décrit l'accès à un cluster Nutanix AHV via l'API Prism.

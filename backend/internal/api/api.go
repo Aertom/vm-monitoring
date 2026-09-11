@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
+	"github.com/Aertom/vm-monitoring/backend/internal/model"
 	"github.com/Aertom/vm-monitoring/backend/internal/store"
 )
 
@@ -30,6 +31,9 @@ func NewRouter(s *Server) http.Handler {
 		r.Get("/families", s.handleListFamilies)
 		r.Post("/groups/{id}/checkout", s.handleCheckout)
 		r.Post("/groups/{id}/checkin", s.handleCheckin)
+	})
+	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
 
 	return r
@@ -76,7 +80,7 @@ func (s *Server) handleListVMs(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleListGroups(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, s.Store.ListGroups())
+	writeJSON(w, http.StatusOK, s.enrichGroups(s.Store.ListGroups()))
 }
 
 func (s *Server) handleListFamilies(w http.ResponseWriter, r *http.Request) {
@@ -84,17 +88,26 @@ func (s *Server) handleListFamilies(w http.ResponseWriter, r *http.Request) {
 }
 
 type checkoutRequest struct {
-	User string `json:"user"`
+	User    string `json:"user"`
+	InUseBy string `json:"inUseBy"`
 }
 
 func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 	groupID := chi.URLParam(r, "id")
 	var req checkoutRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.User == "" {
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "corps JSON invalide")
+		return
+	}
+	user := req.User
+	if user == "" {
+		user = req.InUseBy
+	}
+	if user == "" {
 		writeError(w, http.StatusBadRequest, "champ 'user' requis")
 		return
 	}
-	if err := s.Store.Checkout(groupID, req.User); err != nil {
+	if err := s.Store.Checkout(groupID, user); err != nil {
 		switch err {
 		case store.ErrGroupNotFound:
 			writeError(w, http.StatusNotFound, err.Error())
@@ -106,7 +119,7 @@ func (s *Server) handleCheckout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	g, _ := s.Store.GetGroup(groupID)
-	writeJSON(w, http.StatusOK, g)
+	writeJSON(w, http.StatusOK, s.enrichGroup(g))
 }
 
 func (s *Server) handleCheckin(w http.ResponseWriter, r *http.Request) {
@@ -121,5 +134,36 @@ func (s *Server) handleCheckin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	g, _ := s.Store.GetGroup(groupID)
-	writeJSON(w, http.StatusOK, g)
+	writeJSON(w, http.StatusOK, s.enrichGroup(g))
+}
+
+type groupResponse struct {
+	model.Group
+	VMs    []model.VM `json:"vms"`
+	Status string     `json:"status"`
+}
+
+func (s *Server) enrichGroup(g model.Group) groupResponse {
+	vms := make([]model.VM, 0, len(g.Members))
+	for _, id := range g.Members {
+		if vm, ok := s.Store.GetVM(id); ok {
+			vms = append(vms, vm)
+		}
+	}
+	return groupResponse{Group: g, VMs: vms, Status: groupStatus(g)}
+}
+
+func (s *Server) enrichGroups(groups []model.Group) []groupResponse {
+	out := make([]groupResponse, 0, len(groups))
+	for _, g := range groups {
+		out = append(out, s.enrichGroup(g))
+	}
+	return out
+}
+
+func groupStatus(g model.Group) string {
+	if g.InUseBy != "" {
+		return "checkedOut"
+	}
+	return "available"
 }

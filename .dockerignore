@@ -1,0 +1,10 @@
+.git
+.gitignore
+frontend/node_modules
+frontend/build
+backend/config.yaml
+backend/hypervisors.yaml
+config.yaml
+hypervisors.yaml
+*.out
+coverage.*
