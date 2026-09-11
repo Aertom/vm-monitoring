@@ -1,4 +1,6 @@
-export type Family = 'sm' | 'cm' | 'ws' | 'oa' | 'unknown';
+// Familles connues + toute famille configurée côté backend (config.yaml:
+// families). Le filtre et les badges suivent /api/families dynamiquement.
+export type Family = 'sm' | 'cm' | 'ws' | 'oa' | 'unknown' | (string & {});
 
 export type VMStatus = 'ok' | 'error' | 'unknown';
 

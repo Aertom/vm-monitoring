@@ -102,6 +102,8 @@
   font-size: 12px;
   font-weight: 700;
   white-space: nowrap;
+  background-color: #e2e8f0;
+  color: #475569;
 }
 
 .family-badge.family-sm {

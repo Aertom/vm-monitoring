@@ -19,6 +19,15 @@ type Server struct {
 	Store *store.Store
 	// Discovery retourne le dernier rapport de découverte (nil = non configuré).
 	Discovery func() inventory.Report
+	// Families est le registre des familles (nil = défaut).
+	Families *model.FamilySet
+}
+
+func (s *Server) families() *model.FamilySet {
+	if s.Families == nil {
+		return model.DefaultFamilies()
+	}
+	return s.Families
 }
 
 // NewRouter construit le routeur HTTP complet de l'application.
@@ -89,7 +98,12 @@ func (s *Server) handleListGroups(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleListFamilies(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, []string{"sm", "cm", "ws", "oa"})
+	names := s.families().Names()
+	out := make([]string, 0, len(names))
+	for _, n := range names {
+		out = append(out, string(n))
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 type checkoutRequest struct {

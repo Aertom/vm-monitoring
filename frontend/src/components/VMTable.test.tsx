@@ -52,4 +52,15 @@ describe('VMTable', () => {
     expect(screen.getByText('1.2.3')).toBeInTheDocument();
     expect(screen.queryByText(/Checked Out At/i)).not.toBeInTheDocument();
   });
+
+  it('accepte une famille configurée (wks) sans classe dédiée', () => {
+    const custom: VM[] = [
+      { id: 'w1', hostname: 'wks-prod-01', ip: '10.0.0.7', family: 'wks', status: 'ok' },
+    ];
+    render(<VMTable vms={custom} families={['wks']} loading={false} />);
+    expect(screen.getByText('wks-prod-01')).toBeInTheDocument();
+    expect(screen.getByText('wks')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/Filter by Family/i), { target: { value: 'wks' } });
+    expect(screen.getByText('wks-prod-01')).toBeInTheDocument();
+  });
 });

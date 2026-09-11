@@ -305,7 +305,16 @@ func slug(s string) string {
 // ip) avec la découverte : une VM découverte dont le nom égale (insensible à
 // la casse) un hostname statique enrichit cette entrée (source hyperviseur) ;
 // sinon elle est ajoutée avec un ID stable dérivé (disc-<source>-<nom>).
+// Utilise les familles par défaut ; préférez MergeWithSet.
 func Merge(static []config.StaticVM, discovered []DiscoveredVM) []model.VM {
+	return MergeWithSet(static, discovered, model.DefaultFamilies())
+}
+
+// MergeWithSet est Merge avec un registre de familles configurable.
+func MergeWithSet(static []config.StaticVM, discovered []DiscoveredVM, set *model.FamilySet) []model.VM {
+	if set == nil {
+		set = model.DefaultFamilies()
+	}
 	now := time.Now().UTC()
 	byName := make(map[string]int)
 	out := make([]model.VM, 0, len(static)+len(discovered))
@@ -314,7 +323,7 @@ func Merge(static []config.StaticVM, discovered []DiscoveredVM) []model.VM {
 			ID:         sv.ID,
 			Hostname:   sv.Hostname,
 			IP:         sv.IP,
-			Family:     model.DetectFamily(sv.Hostname),
+			Family:     set.Detect(sv.Hostname),
 			Hypervisor: model.HypervisorStatic,
 			Status:     model.StatusUnknown,
 			LastSeen:   now,
@@ -333,7 +342,7 @@ func Merge(static []config.StaticVM, discovered []DiscoveredVM) []model.VM {
 		out = append(out, model.VM{
 			ID:         id,
 			Hostname:   d.Name,
-			Family:     model.DetectFamily(d.Name),
+			Family:     set.Detect(d.Name),
 			Hypervisor: d.Source,
 			Status:     model.StatusUnknown,
 			LastSeen:   now,

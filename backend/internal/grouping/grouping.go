@@ -23,7 +23,18 @@ import (
 // déterministe : à entrée égale, la sortie est toujours identique, ce qui
 // permet de préserver les statuts InUseBy/CheckedOutAt d'un cycle à l'autre
 // via un remapping fait par l'appelant (le store) sur la base de l'ID de groupe.
+// Utilise le jeu de familles par défaut ; préférez RebuildWithSet.
 func Rebuild(vms []model.VM) []model.Group {
+	return RebuildWithSet(vms, model.DefaultFamilies())
+}
+
+// RebuildWithSet est Rebuild avec un registre de familles configurable :
+// les familles "core" sont fusionnées par union-find, les "shared"
+// (rôle oa) sont rattachées aux groupes qui les référencent.
+func RebuildWithSet(vms []model.VM, set *model.FamilySet) []model.Group {
+	if set == nil {
+		set = model.DefaultFamilies()
+	}
 	byID := make(map[string]model.VM, len(vms))
 	ipToID := make(map[string]string, len(vms))
 	for _, vm := range vms {
@@ -33,7 +44,7 @@ func Rebuild(vms []model.VM) []model.Group {
 		}
 	}
 
-	// union-find restreint aux familles sm/cm/ws.
+	// union-find restreint aux familles core.
 	parent := make(map[string]string)
 	var find func(string) string
 	find = func(x string) string {
@@ -49,14 +60,11 @@ func Rebuild(vms []model.VM) []model.Group {
 		}
 	}
 
-	coreFamilies := map[model.Family]bool{
-		model.FamilySM: true,
-		model.FamilyCM: true,
-		model.FamilyWS: true,
-	}
+	isCore := set.IsCore
+	isShared := set.IsShared
 
 	for _, vm := range vms {
-		if coreFamilies[vm.Family] {
+		if isCore(vm.Family) {
 			parent[vm.ID] = vm.ID
 		}
 	}
@@ -64,7 +72,7 @@ func Rebuild(vms []model.VM) []model.Group {
 	// Références croisées : si le /etc/hosts d'une VM core référence l'IP
 	// d'une autre VM core, on les unit dans le même groupe.
 	for _, vm := range vms {
-		if !coreFamilies[vm.Family] {
+		if !isCore(vm.Family) {
 			continue
 		}
 		for _, entry := range vm.EtcHosts {
@@ -73,7 +81,7 @@ func Rebuild(vms []model.VM) []model.Group {
 				continue
 			}
 			other := byID[otherID]
-			if coreFamilies[other.Family] {
+			if isCore(other.Family) {
 				union(vm.ID, otherID)
 			}
 		}
@@ -93,37 +101,37 @@ func Rebuild(vms []model.VM) []model.Group {
 	groups := make(map[string]*model.Group)
 	rootToGroupID := make(map[string]string)
 	for root, members := range rootMembers {
-		gid := groupID(members)
+		gid := groupIDWithSet(members, set)
 		rootToGroupID[root] = gid
 		groups[gid] = &model.Group{ID: gid, Members: cloneMembers(members)}
 	}
 
-	// Rattachement des VMs oa : une VM oa est rattachée à un groupe si son
-	// IP est référencée dans le /etc/hosts d'une VM core de ce groupe, ou si
-	// son propre /etc/hosts référence une VM core de ce groupe.
+	// Rattachement des VMs partagées : une VM shared est rattachée à un
+	// groupe si son IP est référencée dans le /etc/hosts d'une VM core de
+	// ce groupe, ou si son propre /etc/hosts référence une VM core du groupe.
 	for _, vm := range vms {
-		if vm.Family != model.FamilyOA {
+		if !isShared(vm.Family) {
 			continue
 		}
 		attachedRoots := make(map[string]bool)
 
-		// Cas 1: le /etc/hosts de la VM oa référence une VM core.
+		// Cas 1: le /etc/hosts de la VM partagée référence une VM core.
 		for _, entry := range vm.EtcHosts {
 			otherID, ok := ipToID[entry.IP]
 			if !ok {
 				continue
 			}
 			other := byID[otherID]
-			if coreFamilies[other.Family] {
+			if isCore(other.Family) {
 				if root := find(otherID); root != "" {
 					attachedRoots[root] = true
 				}
 			}
 		}
 
-		// Cas 2: une VM core référence l'IP de cette VM oa dans son /etc/hosts.
+		// Cas 2: une VM core référence l'IP de cette VM partagée.
 		for _, core := range vms {
-			if !coreFamilies[core.Family] {
+			if !isCore(core.Family) {
 				continue
 			}
 			for _, entry := range core.EtcHosts {
@@ -140,7 +148,7 @@ func Rebuild(vms []model.VM) []model.Group {
 			if gid == "" {
 				continue
 			}
-			groups[gid].Members[model.FamilyOA] = vm.ID
+			groups[gid].Members[vm.Family] = vm.ID
 		}
 	}
 
@@ -153,13 +161,17 @@ func Rebuild(vms []model.VM) []model.Group {
 }
 
 // groupID calcule un identifiant stable et déterministe pour un groupe à
-// partir des IDs de VMs sm/cm/ws qui le composent (l'oa n'entre pas dans le
-// calcul car une même oa peut être rattachée à plusieurs groupes).
+// partir des IDs de ses VMs core (les shared n'entrent pas dans le calcul
+// car une même VM partagée peut être rattachée à plusieurs groupes).
 func groupID(members map[model.Family]string) string {
-	keys := []model.Family{model.FamilySM, model.FamilyCM, model.FamilyWS}
-	parts := make([]string, 0, 3)
-	for _, f := range keys {
-		if id, ok := members[f]; ok {
+	return groupIDWithSet(members, model.DefaultFamilies())
+}
+
+// groupIDWithSet est groupID restreint aux familles core du registre.
+func groupIDWithSet(members map[model.Family]string, set *model.FamilySet) string {
+	parts := make([]string, 0, len(members))
+	for f, id := range members {
+		if set.IsCore(f) {
 			parts = append(parts, string(f)+":"+id)
 		}
 	}

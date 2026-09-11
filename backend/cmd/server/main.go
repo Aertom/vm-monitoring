@@ -46,15 +46,21 @@ func main() {
 	log.Printf("hyperviseurs: %d esxi, %d nutanix, %d kvm",
 		len(hcfg.ESXi), len(hcfg.Nutanix), len(hcfg.KVM))
 
-	st := store.New()
-	st.ReplaceVMs(buildStaticVMs(cfg))
+	famSet, err := model.NewFamilySet(cfg.Families)
+	if err != nil {
+		log.Fatalf("familles invalides: %v", err)
+	}
+	log.Printf("familles: %v", famSet.Names())
+
+	st := store.NewWithFamilies(famSet)
+	st.ReplaceVMs(buildStaticVMs(cfg, famSet))
 
 	var lastReport atomic.Value
 	lastReport.Store(inventory.Report{At: time.Now().UTC(), Sources: map[string]int{}})
 
-	go collectLoop(st, cfg, hcfg, &lastReport)
+	go collectLoop(st, cfg, hcfg, famSet, &lastReport)
 
-	srv := &api.Server{Store: st, Discovery: func() inventory.Report {
+	srv := &api.Server{Store: st, Families: famSet, Discovery: func() inventory.Report {
 		rep, _ := lastReport.Load().(inventory.Report)
 		return rep
 	}}
@@ -85,23 +91,23 @@ func runHealthcheck(url string) int {
 
 // buildStaticVMs convertit l'inventaire statique de la config en VMs du store.
 // État initial avant le premier cycle : Status "unknown", Family déduite.
-func buildStaticVMs(cfg *config.Config) []model.VM {
-	return inventory.Merge(cfg.StaticVMs, nil)
+func buildStaticVMs(cfg *config.Config, famSet *model.FamilySet) []model.VM {
+	return inventory.MergeWithSet(cfg.StaticVMs, nil, famSet)
 }
 
 // collectLoop exécute un cycle complet (découverte + fusion + collecte SSH)
 // immédiatement puis à chaque pollIntervalSeconds. ReplaceVMs préserve
 // checkout et renommages d'un cycle à l'autre.
-func collectLoop(st *store.Store, cfg *config.Config, hcfg *config.HypervisorsConfig, lastReport *atomic.Value) {
-	runCycle(st, cfg, hcfg, lastReport)
+func collectLoop(st *store.Store, cfg *config.Config, hcfg *config.HypervisorsConfig, famSet *model.FamilySet, lastReport *atomic.Value) {
+	runCycle(st, cfg, hcfg, famSet, lastReport)
 	ticker := time.NewTicker(time.Duration(cfg.PollIntervalSeconds) * time.Second)
 	defer ticker.Stop()
 	for range ticker.C {
-		runCycle(st, cfg, hcfg, lastReport)
+		runCycle(st, cfg, hcfg, famSet, lastReport)
 	}
 }
 
-func runCycle(st *store.Store, cfg *config.Config, hcfg *config.HypervisorsConfig, lastReport *atomic.Value) {
+func runCycle(st *store.Store, cfg *config.Config, hcfg *config.HypervisorsConfig, famSet *model.FamilySet, lastReport *atomic.Value) {
 	timeout := time.Duration(cfg.PollIntervalSeconds) * time.Second
 	if timeout <= 0 || timeout > 5*time.Minute {
 		timeout = 60 * time.Second
@@ -114,7 +120,7 @@ func runCycle(st *store.Store, cfg *config.Config, hcfg *config.HypervisorsConfi
 	for _, e := range rep.Errors {
 		log.Printf("découverte: %s", e)
 	}
-	vms := inventory.Merge(cfg.StaticVMs, discovered)
+	vms := inventory.MergeWithSet(cfg.StaticVMs, discovered, famSet)
 	if cfg.SSH.PrivateKeyPath == "" {
 		log.Print("collecte SSH désactivée (ssh.privateKeyPath vide)")
 		st.ReplaceVMs(vms)

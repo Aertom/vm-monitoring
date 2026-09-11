@@ -9,6 +9,8 @@ import (
 	"os"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/Aertom/vm-monitoring/backend/internal/model"
 )
 
 // Config est la configuration générale de l'application (config.yaml).
@@ -25,8 +27,13 @@ type Config struct {
 	StaticVMs []StaticVM `yaml:"staticVMs"`
 	// AppDirs associe chaque famille de VM (sm, cm, ws, oa, unknown) aux
 	// dossiers scrutés via SSH pour les versions d'applications.
-	// Famille absente ou vide = ["/opt"].
+	// Famille absente ou vide = ["/opt"]. Les clés doivent reprendre les
+	// noms configurés dans Families.
 	AppDirs map[string][]string `yaml:"appDirs"`
+	// Families redéfinit les familles de VMs (détection + rôles). Vide =
+	// comportement historique (sm/cm/ws core, oa partagée). Exemple pour
+	// renommer ws en wks : [{name: wks, shared: false}].
+	Families []model.FamilyDef `yaml:"families"`
 }
 
 // SSHConfig regroupe les paramètres de connexion SSH par défaut.

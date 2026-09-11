@@ -257,3 +257,22 @@ func TestRename(t *testing.T) {
 		t.Errorf("rename inexistant = %d, attendu 404", rec.Code)
 	}
 }
+
+func TestFamiliesCustom(t *testing.T) {
+	set, err := model.NewFamilySet([]model.FamilyDef{{Name: "sm"}, {Name: "wks"}})
+	if err != nil {
+		t.Fatalf("NewFamilySet: %v", err)
+	}
+	srv := newTestServer()
+	srv.Families = set
+	req := httptest.NewRequest(http.MethodGet, "/api/families", nil)
+	rec := httptest.NewRecorder()
+	NewRouter(srv).ServeHTTP(rec, req)
+	var fams []string
+	if err := json.NewDecoder(rec.Body).Decode(&fams); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(fams) != 2 || fams[0] != "sm" || fams[1] != "wks" {
+		t.Errorf("families=%v", fams)
+	}
+}

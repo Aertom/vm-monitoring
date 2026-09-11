@@ -97,3 +97,16 @@ func TestRename(t *testing.T) {
 		t.Fatalf("nom non préservé après ReplaceVMs: %q", g.Name)
 	}
 }
+
+func TestNewWithFamilies_Custom(t *testing.T) {
+	set, err := model.NewFamilySet([]model.FamilyDef{{Name: "wks"}})
+	if err != nil {
+		t.Fatalf("NewFamilySet: %v", err)
+	}
+	s := NewWithFamilies(set)
+	s.ReplaceVMs([]model.VM{{ID: "w1", IP: "10.0.0.1", Family: "wks"}})
+	groups := s.ListGroups()
+	if len(groups) != 1 || groups[0].Members["wks"] != "w1" {
+		t.Fatalf("groupes incorrects: %+v", groups)
+	}
+}

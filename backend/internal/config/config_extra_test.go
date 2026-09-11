@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/Aertom/vm-monitoring/backend/internal/model"
 )
 
 func TestLoadMissingFile(t *testing.T) {
@@ -43,6 +45,40 @@ func TestLoadHypervisorsValidAndInvalid(t *testing.T) {
 	}
 	if _, err := LoadHypervisors(bad); err == nil {
 		t.Fatalf("attendu une erreur YAML invalide")
+	}
+}
+
+func TestLoadFamiliesCustom(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	content := `
+staticVMs:
+  - id: "w1"
+    hostname: "app-wks-01"
+    ip: "10.0.0.7"
+families:
+  - name: sm
+  - name: wks
+    match: [wks]
+  - name: ops
+    shared: true
+`
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	set, err := model.NewFamilySet(cfg.Families)
+	if err != nil {
+		t.Fatalf("NewFamilySet: %v", err)
+	}
+	if got := set.Detect("app-wks-01"); got != "wks" {
+		t.Fatalf("Detect=%q", got)
+	}
+	if !set.IsShared("ops") {
+		t.Fatalf("ops devrait être shared")
 	}
 }
 

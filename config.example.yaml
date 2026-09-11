@@ -25,6 +25,18 @@ appDirs:
   oa: ["/opt"]
   unknown: ["/opt"]
 
+# Familles de VMs (détection par sous-chaîne insensible à la casse, dans
+# l'ordre listé ; shared: true = rôle partagé façon oa, exclue de l'ID).
+# Décommentez pour renommer, ex. ws -> wks (alignez aussi appDirs et les
+# hostnames) :
+# families:
+#   - name: sm
+#   - name: cm
+#   - name: wks
+#     match: [wks]
+#   - name: oa
+#     shared: true
+
 staticVMs:
   # Storage/Memory Nodes (sm)
   - id: "vm-sm-01"

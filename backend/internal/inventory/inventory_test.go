@@ -152,3 +152,15 @@ func TestDiscoverAll_PartialFailure(t *testing.T) {
 		t.Fatalf("attendu 1 erreur agrégée, obtenu %v", rep.Errors)
 	}
 }
+
+func TestMergeWithSet_Renamed(t *testing.T) {
+	set, err := model.NewFamilySet([]model.FamilyDef{{Name: "sm"}, {Name: "wks", Match: []string{"wks"}}})
+	if err != nil {
+		t.Fatalf("NewFamilySet: %v", err)
+	}
+	static := []config.StaticVM{{ID: "w1", Hostname: "app-wks-01", IP: "10.0.0.7"}}
+	got := MergeWithSet(static, nil, set)
+	if len(got) != 1 || got[0].Family != "wks" {
+		t.Fatalf("famille renommée non détectée: %+v", got)
+	}
+}

@@ -14,16 +14,27 @@ import (
 
 // Store est un stockage en mémoire thread-safe des VMs et des groupes.
 type Store struct {
-	mu     sync.RWMutex
-	vms    map[string]model.VM
-	groups map[string]model.Group
+	mu       sync.RWMutex
+	vms      map[string]model.VM
+	groups   map[string]model.Group
+	families *model.FamilySet
 }
 
-// New crée un Store vide.
+// New crée un Store vide (familles par défaut).
 func New() *Store {
+	return NewWithFamilies(nil)
+}
+
+// NewWithFamilies crée un Store vide avec un registre de familles
+// configurable (nil = défaut).
+func NewWithFamilies(set *model.FamilySet) *Store {
+	if set == nil {
+		set = model.DefaultFamilies()
+	}
 	return &Store{
-		vms:    make(map[string]model.VM),
-		groups: make(map[string]model.Group),
+		vms:      make(map[string]model.VM),
+		groups:   make(map[string]model.Group),
+		families: set,
 	}
 }
 
@@ -41,7 +52,7 @@ func (s *Store) ReplaceVMs(vms []model.VM) {
 	}
 	s.vms = newVMs
 
-	rebuilt := grouping.Rebuild(vms)
+	rebuilt := grouping.RebuildWithSet(vms, s.families)
 	newGroups := make(map[string]model.Group, len(rebuilt))
 	for _, g := range rebuilt {
 		if old, ok := s.groups[g.ID]; ok {
