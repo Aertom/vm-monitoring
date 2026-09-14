@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import App from './App';
 import { apiService } from './api/client';
@@ -11,6 +11,7 @@ jest.mock('./api/client', () => ({
     getFamilies: jest.fn(),
     checkoutGroup: jest.fn(),
     checkinGroup: jest.fn(),
+    renameGroup: jest.fn(),
   },
 }));
 const mocked = apiService as jest.Mocked<typeof apiService>;
@@ -31,12 +32,20 @@ const groups: Group[] = [
 ];
 
 describe('App', () => {
-  it('propage le checkout du groupe vers le tableau VMs', async () => {
+  beforeEach(() => {
     mocked.getVMs.mockResolvedValue(vms);
     mocked.getGroups.mockResolvedValue(groups);
     mocked.getFamilies.mockResolvedValue(['sm']);
+  });
+
+  it('page VMs : checkout propagé, puis page Groups', async () => {
     render(<App />);
-    expect(await screen.findAllByText('sm-prod-01')).toHaveLength(2);
-    expect(await screen.findAllByText('alice')).toHaveLength(2);
+    expect(await screen.findAllByText('sm-prod-01')).toHaveLength(1);
+    expect(await screen.findAllByText('alice')).toHaveLength(1);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Groups' }));
+    expect(await screen.findAllByText('sm-prod-01')).toHaveLength(1);
+    expect(await screen.findAllByText('alice')).toHaveLength(1);
+    expect(screen.getByText('g1')).toBeInTheDocument();
   });
 });

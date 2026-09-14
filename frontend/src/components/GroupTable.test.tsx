@@ -68,16 +68,12 @@ describe('GroupTable', () => {
     expect(screen.getByText(/No groups available/i)).toBeInTheDocument();
   });
 
-  it('trie par colonne au clic sur les en-têtes', () => {
-    const reversed = [...groups].reverse();
-    render(<GroupTable groups={reversed} onGroupsUpdated={jest.fn()} loading={false} />);
-    const table = screen.getByRole('table');
-    const firstRow = () => within(table).getAllByRole('row')[1].textContent;
-    expect(firstRow()).toContain('g2');
-    fireEvent.click(screen.getByRole('columnheader', { name: /^Status/i }));
-    expect(firstRow()).toContain('g1');
-    fireEvent.click(screen.getByRole('columnheader', { name: /^Status/i }));
-    expect(firstRow()).toContain('g2');
+  it('affiche une carte triée par groupe', () => {
+    render(<GroupTable groups={[...groups].reverse()} onGroupsUpdated={jest.fn()} loading={false} />);
+    expect(screen.getAllByRole('table')).toHaveLength(2);
+    const headings = screen.getAllByRole('heading', { level: 3 });
+    expect(headings[0]).toHaveTextContent('g1');
+    expect(headings[1]).toHaveTextContent('g2');
   });
 
   it('renomme un groupe', async () => {

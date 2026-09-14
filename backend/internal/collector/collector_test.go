@@ -30,12 +30,6 @@ func TestParseAppVersionsEmpty(t *testing.T) {
 	}
 }
 
-func TestDefaultAppDirs(t *testing.T) {
-	if got := DefaultAppDirs(); len(got) != 1 || got[0] != "/opt" {
-		t.Fatalf("défaut inattendu: %v", got)
-	}
-}
-
 func TestExpandPath(t *testing.T) {
 	t.Setenv("HOME", "/tmp/fakehome")
 	if got := expandPath("~/.ssh/id_rsa"); got != "/tmp/fakehome/.ssh/id_rsa" {
@@ -74,11 +68,28 @@ func TestDirsForFamily(t *testing.T) {
 	if got := DirsForFamily(cfg, "CM"); !reflect.DeepEqual(got, []string{"/opt", "/appli"}) {
 		t.Fatalf("casse non gérée: %v", got)
 	}
-	if got := DirsForFamily(cfg, "ws"); !reflect.DeepEqual(got, DefaultAppDirs()) {
-		t.Fatalf("famille absente: %v", got)
+	if got := DirsForFamily(cfg, "ws"); len(got) != 0 {
+		t.Fatalf("famille absente devrait donner aucune collecte, obtenu %v", got)
 	}
-	if got := DirsForFamily(nil, "sm"); !reflect.DeepEqual(got, DefaultAppDirs()) {
-		t.Fatalf("config nil: %v", got)
+	if got := DirsForFamily(nil, "sm"); len(got) != 0 {
+		t.Fatalf("config nil devrait donner aucune collecte, obtenu %v", got)
+	}
+}
+
+func TestAppForEntry(t *testing.T) {
+	// Lien symbolique : affiche le nom de la cible, pas le chemin complet.
+	got := appForEntry("appli1", "/appli/appli_1.2.3")
+	if got.Name != "appli_1.2.3" || got.Version != "" {
+		t.Fatalf("lien: %+v", got)
+	}
+	// Cible relative : basename quand même.
+	if got := appForEntry("appli1", "appli_1.2.3"); got.Name != "appli_1.2.3" {
+		t.Fatalf("lien relatif: %+v", got)
+	}
+	// Entrée normale : décomposition nom_version inchangée.
+	got = appForEntry("appli1_1.2.3", "appli1_1.2.3")
+	if got.Name != "appli1" || got.Version != "1.2.3" {
+		t.Fatalf("normale: %+v", got)
 	}
 }
 

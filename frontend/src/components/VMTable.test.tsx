@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { render, screen, fireEvent, within, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { VMTable } from './VMTable';
 import { VM } from '../types';
@@ -60,8 +60,9 @@ describe('VMTable', () => {
       { id: 'x1', hostname: 'x-prod-01', ip: '10.0.0.9', family: 'unknown', status: 'unknown' },
     ];
     render(<VMTable vms={discovered} families={['sm', 'cm', 'unknown']} loading={false} />);
-    expect(screen.getByText('esx-08')).toBeInTheDocument();
-    expect(screen.getByText('static')).toBeInTheDocument();
+    const table = screen.getByRole('table');
+    expect(within(table).getByText('esx-08')).toBeInTheDocument();
+    expect(within(table).getByText('static')).toBeInTheDocument();
   });
 
   it('accepte une famille configurée (wks) sans classe dédiée', () => {
@@ -81,5 +82,35 @@ describe('VMTable', () => {
     ];
     render(<VMTable vms={failed} families={['cm']} loading={false} />);
     expect(screen.getByTitle('connexion ssh 10.0.0.2: timeout')).toHaveTextContent('error');
+  });
+
+  it('cache unknown par défaut, filtre par hyperviseur', () => {
+    const mixed: VM[] = [
+      { id: 'sm1', hostname: 'sm-prod-01', ip: '10.0.0.1', family: 'sm', status: 'ok', hypervisor: 'esxi', hypervisorName: 'esx-08' },
+      { id: 'x1', hostname: 'x-prod-01', ip: '10.0.0.9', family: 'unknown', status: 'unknown', hypervisor: 'static' },
+    ];
+    render(<VMTable vms={mixed} families={['sm']} loading={false} />);
+    expect(screen.queryByText('x-prod-01')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText(/Show unknown/i));
+    expect(screen.getByText('x-prod-01')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/Filter by Hypervisor/i), { target: { value: 'esx-08' } });
+    expect(screen.getByText('sm-prod-01')).toBeInTheDocument();
+    expect(screen.queryByText('x-prod-01')).not.toBeInTheDocument();
+  });
+
+  it('affiche le nom du groupe et ouvre ssh:// + copie', async () => {
+    const withGroup: VM[] = [
+      { id: 'sm1', hostname: 'sm-prod-01', ip: '10.0.0.1', family: 'sm', status: 'ok', groupId: 'g1', groupName: 'prod' },
+    ];
+    const writeText = jest.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    const openSpy = jest.spyOn(window, 'open').mockReturnValue(null);
+    render(<VMTable vms={withGroup} families={['sm']} loading={false} />);
+    expect(screen.getByText('prod')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Connect .* via SSH/i }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith('ssh -XAC admin@10.0.0.1'));
+    expect(openSpy).toHaveBeenCalledWith('ssh://admin@10.0.0.1', '_blank', 'noopener');
+    expect(await screen.findByText('Copied')).toBeInTheDocument();
+    openSpy.mockRestore();
   });
 });

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -21,11 +22,8 @@ import (
 	"github.com/Aertom/vm-monitoring/backend/internal/model"
 )
 
-// DefaultAppDirs est utilisé quand une famille ne configure aucun dossier.
-func DefaultAppDirs() []string { return []string{"/opt"} }
-
 // DirsForFamily retourne les dossiers à scruter pour une famille donnée
-// (clé insensible à la casse), ou DefaultAppDirs si non configurée.
+// (clé insensible à la casse), ou rien si non configurée (pas de collecte).
 func DirsForFamily(cfg *config.Config, family string) []string {
 	if cfg != nil {
 		key := strings.ToLower(strings.TrimSpace(family))
@@ -33,7 +31,7 @@ func DirsForFamily(cfg *config.Config, family string) []string {
 			return dirs
 		}
 	}
-	return DefaultAppDirs()
+	return nil
 }
 
 // versionSplit découpe "nom_version" sur le dernier séparateur suivi d'un chiffre.
@@ -47,13 +45,20 @@ func ParseAppVersions(lsOutput string) []model.AppVersion {
 		if line == "" {
 			continue
 		}
-		name, version := line, ""
-		if m := versionSplit.FindStringSubmatch(line); m != nil {
-			name, version = m[1], m[2]
-		}
+		name, version := splitVersion(line)
 		apps = append(apps, model.AppVersion{Name: name, Version: version})
 	}
 	return apps
+}
+
+// splitVersion découpe "nom_version" (ou "nom-version") sur le dernier
+// séparateur suivi d'un chiffre. Sans correspondance, version vide.
+func splitVersion(entry string) (name, version string) {
+	name, version = entry, ""
+	if m := versionSplit.FindStringSubmatch(entry); m != nil {
+		name, version = m[1], m[2]
+	}
+	return name, version
 }
 
 func shellQuote(s string) string {
@@ -240,13 +245,11 @@ func (e *SSHExecutor) Run(ctx context.Context, name string, args ...string) (str
 }
 
 // CollectFull se connecte en SSH à la VM et rapporte versions
-// d'applications + entrées /etc/hosts. Un dossier absent ou un /etc/hosts
-// illisible n'échoue pas toute la collecte (données partielles).
+// d'applications + entrées /etc/hosts. Sans dossiers configurés, seules
+// les entrées /etc/hosts sont collectées (pas de versions). Un dossier
+// absent ou un /etc/hosts illisible n'échoue pas toute la collecte.
 func CollectFull(ctx context.Context, ip string, sshCfg config.SSHConfig, dirs []string) (HostData, error) {
 	var data HostData
-	if len(dirs) == 0 {
-		dirs = DefaultAppDirs()
-	}
 	timeout := time.Duration(sshCfg.TimeoutSeconds) * time.Second
 	client, err := Dial(ctx, ip, sshCfg.User, sshCfg.Port, sshCfg.PrivateKeyPath, sshCfg.Password, timeout)
 	if err != nil {
@@ -259,12 +262,57 @@ func CollectFull(ctx context.Context, ip string, sshCfg config.SSHConfig, dirs [
 		if err != nil {
 			continue
 		}
-		data.Apps = append(data.Apps, ParseAppVersions(out)...)
+		for _, entry := range splitLines(out) {
+			display := entry
+			if target, ok := tryReadlink(ctx, client, dir, entry); ok {
+				display = target
+			}
+			data.Apps = append(data.Apps, appForEntry(entry, display))
+		}
 	}
 	if out, err := runCmd(ctx, client, "cat /etc/hosts"); err == nil {
 		data.EtcHosts = ParseEtcHosts(out)
 	}
 	return data, nil
+}
+
+// splitLines découpe une sortie multi-lignes en entrées non vides.
+func splitLines(out string) []string {
+	var entries []string
+	for _, line := range strings.Split(out, "\n") {
+		if line = strings.TrimSpace(line); line != "" {
+			entries = append(entries, line)
+		}
+	}
+	return entries
+}
+
+// tryReadlink résout un lien symbolique : retourne la cible brute si
+// dir/entry est un lien, false sinon (ou en cas d'erreur).
+func tryReadlink(ctx context.Context, client *ssh.Client, dir, entry string) (string, bool) {
+	if strings.Contains(entry, "/") {
+		return "", false
+	}
+	out, err := runCmd(ctx, client, "readlink -- "+shellQuote(dir+"/"+entry))
+	if err != nil {
+		return "", false
+	}
+	if target := strings.TrimSpace(out); target != "" {
+		return target, true
+	}
+	return "", false
+}
+
+// appForEntry construit l'application affichée : si l'entrée est un lien
+// symbolique, on affiche le nom du dossier/fichier cible (ex: lien
+// /opt/appli1 -> /appli/appli_1.2.3 affiché "appli_1.2.3"), sinon on
+// décompose "nom_version" classiquement.
+func appForEntry(entry, display string) model.AppVersion {
+	if display != entry {
+		return model.AppVersion{Name: path.Base(display)}
+	}
+	name, version := splitVersion(entry)
+	return model.AppVersion{Name: name, Version: version}
 }
 
 // Collect se connecte en SSH à la VM et liste les dossiers donnés.

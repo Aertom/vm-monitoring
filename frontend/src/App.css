@@ -80,6 +80,35 @@
   width: 100%;
 }
 
+.page-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  background: var(--card);
+  padding: 6px;
+  border-radius: 999px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--line);
+  width: fit-content;
+}
+
+.page-tabs .tab {
+  background: transparent;
+  color: var(--muted);
+  padding: 9px 24px;
+}
+
+.page-tabs .tab:hover:not(:disabled) {
+  color: var(--primary-dark);
+  transform: none;
+}
+
+.page-tabs .tab.active {
+  background: linear-gradient(135deg, #2563eb, #0284c7);
+  color: white;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+}
+
 .error-banner {
   background-color: #fff1f2;
   border: 1px solid #fecdd3;

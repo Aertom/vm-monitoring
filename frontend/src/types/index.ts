@@ -22,6 +22,7 @@ export interface VM {
   hypervisor?: string;
   hypervisorName?: string;
   groupId?: string;
+  groupName?: string;
   apps?: AppVersion[];
   inUseBy?: string;
   checkedOutAt?: string;
@@ -62,6 +63,7 @@ export function enrichVMsWithCheckout(vms: VM[], groups: Group[]): VM[] {
     return {
       ...vm,
       groupId: group.id,
+      groupName: group.name,
       inUseBy: group.inUseBy ?? vm.inUseBy,
       checkedOutAt: group.checkedOutAt ?? vm.checkedOutAt,
     };

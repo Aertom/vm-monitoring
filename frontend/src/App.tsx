@@ -11,6 +11,7 @@ const App: React.FC = () => {
   const [families, setFamilies] = useState<Family[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState<'vms' | 'groups'>('vms');
 
   const fetchData = async () => {
     setLoading(true);
@@ -62,12 +63,32 @@ const App: React.FC = () => {
           </div>
         )}
 
-        <VMTable vms={enrichedVMs} families={families} loading={loading} />
-        <GroupTable
-          groups={groups}
-          onGroupsUpdated={handleGroupsUpdated}
-          loading={loading}
-        />
+        <nav className="page-tabs" aria-label="Pages">
+          <button
+            className={page === 'vms' ? 'tab active' : 'tab'}
+            aria-current={page === 'vms' ? 'page' : undefined}
+            onClick={() => setPage('vms')}
+          >
+            Virtual Machines
+          </button>
+          <button
+            className={page === 'groups' ? 'tab active' : 'tab'}
+            aria-current={page === 'groups' ? 'page' : undefined}
+            onClick={() => setPage('groups')}
+          >
+            Groups
+          </button>
+        </nav>
+
+        {page === 'vms' ? (
+          <VMTable vms={enrichedVMs} families={families} loading={loading} />
+        ) : (
+          <GroupTable
+            groups={groups}
+            onGroupsUpdated={handleGroupsUpdated}
+            loading={loading}
+          />
+        )}
       </main>
 
       <footer className="app-footer">

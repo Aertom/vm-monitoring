@@ -38,6 +38,42 @@
   color: var(--muted);
 }
 
+.vm-filters {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.unknown-toggle {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.unknown-toggle input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+.btn-ssh {
+  background: linear-gradient(135deg, #0f172a, #334155);
+  color: white;
+  padding: 6px 16px;
+  font-size: 13px;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.3);
+}
+
+.btn-ssh:hover:not(:disabled) {
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.4);
+}
+
 .family-filter select {
   padding: 9px 14px;
   border: 1px solid var(--line);

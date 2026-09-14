@@ -18,7 +18,10 @@ ssh:
   port: 22
   timeoutSeconds: 5
 
-# Dossiers scrutés par famille (toutes les familles configurables ici)
+# Dossiers scrutés par famille (optionnel : famille absente = pas de
+# collecte de versions, seul /etc/hosts est lu). Un dossier lien
+# symbolique affiche le nom de sa cible (ex. /opt/appli1 -> /appli/appli_1.2.3
+# affiché "appli_1.2.3").
 appDirs:
   sm: ["/opt"]
   cm: ["/opt", "/appli"]
