@@ -2,23 +2,32 @@
 # Copier vers hypervisors.yaml (ignoré par git) et adapter à votre environnement :
 #   cp hypervisors.example.yaml hypervisors.yaml
 # Schéma attendu par backend/internal/config/config.go (HypervisorsConfig) :
-#   esxi[{name,url,username,password,insecure}],
+#   esxi[{name,url,username,password,insecure,mode}],
 #   nutanix[{name,url,username,password,insecure}],
 #   kvm[{name,host,user,port}]
 # Fichier optionnel : s'il est absent, la découverte auto est désactivée.
+#
+# ESXi : mode "rest" = API /rest/vcenter (vCenter UNIQUEMENT, défaut).
+# ESXi standalone v8 : mode "ssh" (vim-cmd via SSH). Prérequis côté ESXi :
+#   - activer SSH : Host > Manage > Services > TSM-SSH (Start + policy auto),
+#   - autoriser la clé : la coller dans /etc/ssh/keys-root/authorized_keys,
+#   - noms de VM sans espaces (limite du parsing vim-cmd).
 
-# Hôtes ESXi / vCenter (API REST https://<host>/rest/vcenter/vm)
+# vCenter (API REST https://<host>/rest/vcenter/vm)
 esxi:
-  - name: "esx-01"
-    url: "https://192.168.0.10"
-    username: "root"
+  - name: "vc-01"
+    url: "https://vcenter.lan"
+    username: "administrator@vsphere.local"
     password: "change-me"
     insecure: true
-  - name: "esx-02"
-    url: "https://192.168.0.11"
-    username: "root"
-    password: "change-me"
-    insecure: true
+    mode: "rest"
+
+  # Exemple ESXi standalone v8 (vim-cmd via SSH, même clé que ssh.*) :
+  # - name: "esx-08"
+  #   url: "https://192.168.0.10"
+  #   username: "root"
+  #   insecure: true
+  #   mode: "ssh"
 
 # Clusters Nutanix AHV (API Prism https://<host>:9440)
 nutanix:

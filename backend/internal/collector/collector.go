@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -92,9 +93,21 @@ type HostData struct {
 	EtcHosts []model.EtcHostsEntry
 }
 
+// expandPath résout le préfixe ~ vers le home directory (os.ReadFile ne
+// le fait pas). Utile pour privateKeyPath: ~/.ssh/id_rsa en local.
+func expandPath(p string) string {
+	if p == "~" || strings.HasPrefix(p, "~/") {
+		if home, err := os.UserHomeDir(); err == nil {
+			return filepath.Join(home, strings.TrimPrefix(p, "~/"))
+		}
+	}
+	return p
+}
+
 // Dial établit une connexion SSH (clé privée) vers l'hôte donné.
 // Exporté pour les exécuteurs distants (ex: virsh via SSH vers un hôte KVM).
 func Dial(ctx context.Context, ip, user string, port int, keyPath string, timeout time.Duration) (*ssh.Client, error) {
+	keyPath = expandPath(keyPath)
 	key, err := os.ReadFile(keyPath)
 	if err != nil {
 		return nil, fmt.Errorf("clé ssh: %w", err)
@@ -142,6 +155,36 @@ func runCmd(ctx context.Context, client *ssh.Client, cmd string) (string, error)
 		return "", fmt.Errorf("%s: %w", cmd, err)
 	}
 	return string(out), nil
+}
+
+// SSHExecutor exécute des commandes sur un hôte distant via SSH (clé privée).
+// Signature compatible avec kvm.CommandExecutor (sans en dépendre) : sert
+// pour virsh distant comme pour vim-cmd sur ESXi standalone.
+type SSHExecutor struct {
+	Host    string
+	User    string
+	Port    int
+	KeyPath string
+	Timeout time.Duration
+}
+
+// Run exécute name + args sur l'hôte distant (une connexion par appel).
+func (e *SSHExecutor) Run(ctx context.Context, name string, args ...string) (string, error) {
+	client, err := Dial(ctx, e.Host, e.User, e.Port, e.KeyPath, e.Timeout)
+	if err != nil {
+		return "", err
+	}
+	defer client.Close()
+	parts := append([]string{name}, args...)
+	quoted := make([]string, 0, len(parts))
+	for _, p := range parts {
+		quoted = append(quoted, shellQuote(p))
+	}
+	out, err := runCmd(ctx, client, strings.Join(quoted, " "))
+	if err != nil {
+		return "", fmt.Errorf("%s: %w", e.Host, err)
+	}
+	return out, nil
 }
 
 // CollectFull se connecte en SSH à la VM et rapporte versions

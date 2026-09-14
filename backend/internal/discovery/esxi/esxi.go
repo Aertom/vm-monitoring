@@ -12,6 +12,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -116,4 +118,29 @@ func (d *Discoverer) Discover(ctx context.Context) ([]VM, error) {
 		})
 	}
 	return vms, nil
+}
+
+// ParseVimCmdGetAllVMs parse la sortie de `vim-cmd vmsvc/getallvms`,
+// la voie de découverte des ESXi standalone (l'API REST /rest/vcenter
+// n'existe que sur vCenter). Exemple :
+//
+//	Vmid     Name          File                            Guest OS      Version
+//	128      cm-prod-01    [datastore1] cm-prod-01/...     otherLinux64  vmx-21
+//
+// Seuls Vmid (numérique, 1re colonne) et Name (2e colonne) sont retenus :
+// l'en-tête et les lignes parasites sont ignorées, et les noms contenant
+// des espaces ne sont pas supportés. PowerState reste vide (non fourni).
+func ParseVimCmdGetAllVMs(out string) []VM {
+	var vms []VM
+	for _, line := range strings.Split(out, "\n") {
+		fields := strings.Fields(strings.TrimSpace(line))
+		if len(fields) < 2 {
+			continue
+		}
+		if _, err := strconv.Atoi(fields[0]); err != nil {
+			continue
+		}
+		vms = append(vms, VM{Name: fields[1], Hypervisor: "esxi"})
+	}
+	return vms
 }

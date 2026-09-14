@@ -67,3 +67,27 @@ func TestDiscoverInvalidJSON(t *testing.T) {
 		t.Fatal("attendu une erreur de décodage JSON")
 	}
 }
+
+func TestParseVimCmdGetAllVMs(t *testing.T) {
+	out := "Vmid     Name          File                              Guest OS      Version\n" +
+		"128      cm-prod-01    [datastore1] cm-prod-01/cm.vmx     otherLinux64  vmx-21\n" +
+		"256      ws-prod-01    [datastore1] ws-prod-01/ws.vmx     otherLinux64  vmx-21\n" +
+		"\n" +
+		"ligne parasite\n"
+	got := ParseVimCmdGetAllVMs(out)
+	if len(got) != 2 {
+		t.Fatalf("attendu 2 VMs, obtenu %+v", got)
+	}
+	if got[0].Name != "cm-prod-01" || got[0].Hypervisor != "esxi" {
+		t.Errorf("VM[0] inattendue: %+v", got[0])
+	}
+	if got[1].Name != "ws-prod-01" {
+		t.Errorf("VM[1] inattendue: %+v", got[1])
+	}
+}
+
+func TestParseVimCmdGetAllVMsEmpty(t *testing.T) {
+	if got := ParseVimCmdGetAllVMs("\n  \nVmid Name\n"); len(got) != 0 {
+		t.Fatalf("attendu 0 VMs, obtenu %+v", got)
+	}
+}

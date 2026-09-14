@@ -12,6 +12,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -52,6 +54,12 @@ func main() {
 	}
 	log.Printf("familles: %v", famSet.Names())
 
+	if cfg.SSH.PrivateKeyPath != "" {
+		if err := checkSSHKey(cfg.SSH.PrivateKeyPath); err != nil {
+			log.Fatalf("clé SSH: %v", err)
+		}
+	}
+
 	st := store.NewWithFamilies(famSet)
 	st.ReplaceVMs(buildStaticVMs(cfg, famSet))
 
@@ -87,6 +95,22 @@ func runHealthcheck(url string) int {
 		return 1
 	}
 	return 0
+}
+
+// checkSSHKey échoue vite si la clé privée est illisible. En conteneur, le
+// chemin hôte n'existe pas : montez la clé (ex. ./id_ed25519:/ssh/key:ro)
+// et pointez privateKeyPath dessus (ex. /ssh/key).
+func checkSSHKey(path string) error {
+	if path == "~" || strings.HasPrefix(path, "~/") {
+		if home, err := os.UserHomeDir(); err == nil {
+			path = filepath.Join(home, strings.TrimPrefix(path, "~/"))
+		}
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return fmt.Errorf("illisible %q (en conteneur : montez ./id_ed25519:/ssh/key:ro et mettez privateKeyPath: /ssh/key): %w", path, err)
+	}
+	return f.Close()
 }
 
 // buildStaticVMs convertit l'inventaire statique de la config en VMs du store.

@@ -33,6 +33,19 @@ func TestDefaultAppDirs(t *testing.T) {
 	}
 }
 
+func TestExpandPath(t *testing.T) {
+	t.Setenv("HOME", "/tmp/fakehome")
+	if got := expandPath("~/.ssh/id_rsa"); got != "/tmp/fakehome/.ssh/id_rsa" {
+		t.Fatalf("expansion ~ incorrecte: %q", got)
+	}
+	if got := expandPath("/absolu/clé"); got != "/absolu/clé" {
+		t.Fatalf("chemin absolu modifié: %q", got)
+	}
+	if got := expandPath("relatif/clé"); got != "relatif/clé" {
+		t.Fatalf("chemin relatif modifié: %q", got)
+	}
+}
+
 func TestParseEtcHosts(t *testing.T) {
 	in := "# commentaire\n\n127.0.0.1 localhost\n::1 localhost\n" +
 		"10.0.0.1 sm-prod-01\n10.0.0.2 cm-prod-01 alias-cm\n" +

@@ -68,6 +68,10 @@ type ESXiConfig struct {
 	Username string `yaml:"username"`
 	Password string `yaml:"password"`
 	Insecure bool   `yaml:"insecure"`
+	// Mode sélectionne la découverte : "rest" (API /rest/vcenter, vCenter
+	// uniquement, défaut) ou "ssh" (vim-cmd via SSH, ESXi standalone v8 ;
+	// utilise username + la clé ssh.* globale).
+	Mode string `yaml:"mode"`
 }
 
 // NutanixConfig décrit l'accès à un cluster Nutanix AHV via l'API Prism.

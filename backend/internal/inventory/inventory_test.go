@@ -92,7 +92,7 @@ func TestDiscoverESXi_Mapping(t *testing.T) {
 	defer srv.Close()
 	got, err := discoverESXi(context.Background(), config.ESXiConfig{
 		Name: "esx-01", URL: srv.URL, Username: "root", Password: "pw", Insecure: true,
-	})
+	}, config.SSHConfig{})
 	if err != nil {
 		t.Fatalf("discoverESXi: %v", err)
 	}
@@ -162,5 +162,19 @@ func TestMergeWithSet_Renamed(t *testing.T) {
 	got := MergeWithSet(static, nil, set)
 	if len(got) != 1 || got[0].Family != "wks" {
 		t.Fatalf("famille renommée non détectée: %+v", got)
+	}
+}
+
+func TestDiscoverESXiSSH_Mapping(t *testing.T) {
+	out := "Vmid     Name\n128      cm-prod-01\n"
+	got, err := discoverESXiSSH(context.Background(), "esx-08", fakeExecutor{out: out})
+	if err != nil {
+		t.Fatalf("discoverESXiSSH: %v", err)
+	}
+	if len(got) != 1 || got[0].Name != "cm-prod-01" || got[0].Source != model.HypervisorESXi {
+		t.Fatalf("mapping incorrect: %+v", got)
+	}
+	if got[0].SourceName != "esx-08" {
+		t.Fatalf("SourceName=%q", got[0].SourceName)
 	}
 }

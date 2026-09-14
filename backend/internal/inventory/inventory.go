@@ -91,11 +91,24 @@ func insecureClient(insecure bool, timeout time.Duration) *http.Client {
 	}
 }
 
-// discoverESXi interroge un hôte ESXi ou vCenter (API REST /rest/vcenter/vm).
-func discoverESXi(ctx context.Context, cfg config.ESXiConfig) ([]DiscoveredVM, error) {
+// discoverESXi interroge un hôte ESXi ou vCenter : API REST /rest/vcenter/vm
+// (mode rest, vCenter uniquement) ou vim-cmd via SSH (mode ssh, ESXi standalone).
+func discoverESXi(ctx context.Context, cfg config.ESXiConfig, sshCfg config.SSHConfig) ([]DiscoveredVM, error) {
 	host, port := splitURL(cfg.URL, 443)
 	if host == "" {
 		return nil, fmt.Errorf("esxi %q: url vide", displayName(cfg.Name, host))
+	}
+	label := displayName(cfg.Name, host)
+	if strings.EqualFold(strings.TrimSpace(cfg.Mode), "ssh") {
+		user := cfg.Username
+		if user == "" {
+			user = "root"
+		}
+		timeout := time.Duration(sshCfg.TimeoutSeconds) * time.Second
+		return discoverESXiSSH(ctx, label, &collector.SSHExecutor{
+			Host: host, User: user, Port: 22,
+			KeyPath: sshCfg.PrivateKeyPath, Timeout: timeout,
+		})
 	}
 	d := esxi.NewDiscoverer(esxi.Config{
 		Host:               net.JoinHostPort(host, strconv.Itoa(port)),
@@ -114,10 +127,29 @@ func discoverESXi(ctx context.Context, cfg config.ESXiConfig) ([]DiscoveredVM, e
 			Name:       vm.Name,
 			PowerState: vm.PowerState,
 			Source:     model.HypervisorESXi,
-			SourceName: displayName(cfg.Name, host),
+			SourceName: label,
 		})
 	}
 	return out, nil
+}
+
+// discoverESXiSSH liste les VMs d'un ESXi standalone via
+// `vim-cmd vmsvc/getallvms` (pas de PowerState sur cette voie).
+func discoverESXiSSH(ctx context.Context, label string, ex kvm.CommandExecutor) ([]DiscoveredVM, error) {
+	out, err := ex.Run(ctx, "vim-cmd", "vmsvc/getallvms")
+	if err != nil {
+		return nil, fmt.Errorf("esxi %s: %w", label, err)
+	}
+	raw := esxi.ParseVimCmdGetAllVMs(out)
+	mapped := make([]DiscoveredVM, 0, len(raw))
+	for _, vm := range raw {
+		mapped = append(mapped, DiscoveredVM{
+			Name:       vm.Name,
+			Source:     model.HypervisorESXi,
+			SourceName: label,
+		})
+	}
+	return mapped, nil
 }
 
 // discoverAHV interroge un cluster Nutanix (API Prism v2 /vms).
@@ -162,37 +194,7 @@ func (localExecutor) Run(ctx context.Context, name string, args ...string) (stri
 	return string(out), nil
 }
 
-// sshExecutor exécute virsh sur un hôte KVM distant via SSH (même clé que les VMs).
-type sshExecutor struct {
-	host    string
-	user    string
-	port    int
-	keyPath string
-	timeout time.Duration
-}
-
-func (e *sshExecutor) Run(ctx context.Context, name string, args ...string) (string, error) {
-	client, err := collector.Dial(ctx, e.host, e.user, e.port, e.keyPath, e.timeout)
-	if err != nil {
-		return "", err
-	}
-	defer client.Close()
-	parts := append([]string{name}, args...)
-	quoted := make([]string, 0, len(parts))
-	for _, p := range parts {
-		quoted = append(quoted, "'"+strings.ReplaceAll(p, "'", `'\''`)+"'")
-	}
-	s, err := client.NewSession()
-	if err != nil {
-		return "", err
-	}
-	defer s.Close()
-	out, err := s.CombinedOutput(strings.Join(quoted, " "))
-	if err != nil {
-		return "", fmt.Errorf("virsh distant: %w: %s", err, strings.TrimSpace(string(out)))
-	}
-	return string(out), nil
-}
+// localExecutor exécute virsh en local (backend colocalisé avec libvirt).
 
 // discoverKVM liste les domaines libvirt en local ou via SSH.
 func discoverKVM(ctx context.Context, cfg config.KVMConfig, sshCfg config.SSHConfig) ([]DiscoveredVM, error) {
@@ -207,7 +209,7 @@ func discoverKVM(ctx context.Context, cfg config.KVMConfig, sshCfg config.SSHCon
 		if user == "" {
 			user = sshCfg.User
 		}
-		ex = &sshExecutor{host: cfg.Host, user: user, port: cfg.Port, keyPath: sshCfg.PrivateKeyPath, timeout: timeout}
+		ex = &collector.SSHExecutor{Host: cfg.Host, User: user, Port: cfg.Port, KeyPath: sshCfg.PrivateKeyPath, Timeout: timeout}
 	}
 	c, err := kvm.NewClient(ex)
 	if err != nil {
@@ -265,7 +267,7 @@ func DiscoverAll(ctx context.Context, hcfg *config.HypervisorsConfig, sshCfg con
 	}
 	for _, cfg := range hcfg.ESXi {
 		cfg := cfg
-		run(func(ctx context.Context) ([]DiscoveredVM, error) { return discoverESXi(ctx, cfg) })
+		run(func(ctx context.Context) ([]DiscoveredVM, error) { return discoverESXi(ctx, cfg, sshCfg) })
 	}
 	for _, cfg := range hcfg.Nutanix {
 		cfg := cfg
