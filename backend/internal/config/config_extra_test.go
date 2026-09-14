@@ -106,3 +106,22 @@ func TestLoadExampleFiles(t *testing.T) {
 		t.Fatalf("appDirs.cm attendu [/opt /appli], obtenu %v", cfg.AppDirs["cm"])
 	}
 }
+
+func TestLoadFamilyExclude(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	content := "familyExclude:\n  - acmod\n  - tmp\n"
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	set, err := model.NewFamilySetWithExclude(cfg.Families, cfg.FamilyExclude)
+	if err != nil {
+		t.Fatalf("NewFamilySetWithExclude: %v", err)
+	}
+	if got := set.Detect("acmod-sm-2"); got != "sm" {
+		t.Fatalf("Detect=%q, attendu sm", got)
+	}
+}

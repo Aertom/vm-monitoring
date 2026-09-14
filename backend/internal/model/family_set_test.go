@@ -80,3 +80,27 @@ func TestFamilySet_NilSafe(t *testing.T) {
 		t.Errorf("nil Names=%v", s.Names())
 	}
 }
+
+func TestFamilySet_Exclude(t *testing.T) {
+	s, err := NewFamilySetWithExclude(nil, []string{"acmod", "  ", "ACMOD"})
+	if err != nil {
+		t.Fatalf("NewFamilySetWithExclude: %v", err)
+	}
+	if got := s.Excluded(); len(got) != 1 || got[0] != "acmod" {
+		t.Fatalf("exclus normalisés attendus [acmod], obtenus %v", got)
+	}
+	cases := []struct {
+		in   string
+		want Family
+	}{
+		{"acmod-sm-2", FamilySM},
+		{"ACMOD-cm-01", FamilyCM},
+		{"acmod-prod-01", FamilyUnknown},
+		{"sm-prod-01", FamilySM},
+	}
+	for _, c := range cases {
+		if got := s.Detect(c.in); got != c.want {
+			t.Errorf("Detect(%q)=%q want %q", c.in, got, c.want)
+		}
+	}
+}

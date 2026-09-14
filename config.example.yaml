@@ -38,6 +38,11 @@ appDirs:
 #   - name: oa
 #     shared: true
 
+# Mots ignorés par la détection (retirés du hostname avant matching).
+# Ex : "acmod" contient "cm" : sans exclusion, "acmod-prod-01" serait
+# flaguée cm ; avec, elle est unknown et "acmod-sm-2" est bien sm.
+# familyExclude: [acmod]
+
 staticVMs:
   # Storage/Memory Nodes (sm)
   - id: "vm-sm-01"

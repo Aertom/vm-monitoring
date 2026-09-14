@@ -48,11 +48,11 @@ func main() {
 	log.Printf("hyperviseurs: %d esxi, %d nutanix, %d kvm",
 		len(hcfg.ESXi), len(hcfg.Nutanix), len(hcfg.KVM))
 
-	famSet, err := model.NewFamilySet(cfg.Families)
+	famSet, err := model.NewFamilySetWithExclude(cfg.Families, cfg.FamilyExclude)
 	if err != nil {
 		log.Fatalf("familles invalides: %v", err)
 	}
-	log.Printf("familles: %v", famSet.Names())
+	log.Printf("familles: %v (exclus: %v)", famSet.Names(), famSet.Excluded())
 
 	if cfg.SSH.PrivateKeyPath != "" {
 		if err := checkSSHKey(cfg.SSH.PrivateKeyPath); err != nil {

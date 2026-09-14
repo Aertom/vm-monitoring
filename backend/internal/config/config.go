@@ -34,6 +34,10 @@ type Config struct {
 	// comportement historique (sm/cm/ws core, oa partagée). Exemple pour
 	// renommer ws en wks : [{name: wks, shared: false}].
 	Families []model.FamilyDef `yaml:"families"`
+	// FamilyExclude liste les mots ignorés par la détection de famille
+	// (retirés du hostname avant matching, insensible à la casse).
+	// Ex : ["acmod"] pour que "acmod-sm-2" → sm (et plus cm via "acmod").
+	FamilyExclude []string `yaml:"familyExclude"`
 }
 
 // SSHConfig regroupe les paramètres de connexion SSH par défaut.

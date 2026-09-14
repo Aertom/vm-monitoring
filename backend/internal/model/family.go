@@ -30,17 +30,23 @@ type FamilyDef struct {
 
 // FamilySet est le registre des familles actives : détection, rôles, ordre.
 type FamilySet struct {
-	defs []FamilyDef
+	defs    []FamilyDef
+	exclude []string
 }
 
-// DefaultFamilies retourne le jeu historique : sm/cm/ws core, oa partagée.
-func DefaultFamilies() *FamilySet {
-	s, _ := NewFamilySet([]FamilyDef{
+// defaultDefs est le jeu historique : sm/cm/ws core, oa partagée.
+func defaultDefs() []FamilyDef {
+	return []FamilyDef{
 		{Name: string(FamilySM)},
 		{Name: string(FamilyCM)},
 		{Name: string(FamilyWS)},
 		{Name: string(FamilyOA), Shared: true},
-	})
+	}
+}
+
+// DefaultFamilies retourne le jeu historique : sm/cm/ws core, oa partagée.
+func DefaultFamilies() *FamilySet {
+	s, _ := NewFamilySet(defaultDefs())
 	return s
 }
 
@@ -48,8 +54,16 @@ func DefaultFamilies() *FamilySet {
 // comportement par défaut. Erreur si : nom vide, "unknown" réservé, doublon
 // (insensible à la casse).
 func NewFamilySet(defs []FamilyDef) (*FamilySet, error) {
+	return NewFamilySetWithExclude(defs, nil)
+}
+
+// NewFamilySetWithExclude est NewFamilySet avec des mots à exclure de la
+// détection : chaque mot est retiré du hostname (insensible à la casse)
+// avant matching. Ex : avec ["acmod"], "acmod-sm-2" → "sm" et
+// "acmod-prod-01" → unknown (le "cm" de "acmod" n'est plus vu).
+func NewFamilySetWithExclude(defs []FamilyDef, exclude []string) (*FamilySet, error) {
 	if len(defs) == 0 {
-		return DefaultFamilies(), nil
+		defs = defaultDefs()
 	}
 	seen := make(map[string]bool, len(defs))
 	out := make([]FamilyDef, 0, len(defs))
@@ -76,16 +90,28 @@ func NewFamilySet(defs []FamilyDef) (*FamilySet, error) {
 		}
 		out = append(out, FamilyDef{Name: name, Match: match, Shared: d.Shared})
 	}
-	return &FamilySet{defs: out}, nil
+	ex := make([]string, 0, len(exclude))
+	seenEx := make(map[string]bool, len(exclude))
+	for _, e := range exclude {
+		if e = strings.ToLower(strings.TrimSpace(e)); e != "" && !seenEx[e] {
+			seenEx[e] = true
+			ex = append(ex, e)
+		}
+	}
+	return &FamilySet{defs: out, exclude: ex}, nil
 }
 
 // Detect retourne la famille du hostname, FamilyUnknown si aucune ne matche.
-// L'ordre de déclaration fait foi en cas de correspondances multiples.
+// Les mots exclus sont d'abord retirés (insensible à la casse), puis
+// l'ordre de déclaration fait foi en cas de correspondances multiples.
 func (s *FamilySet) Detect(hostname string) Family {
 	if s == nil {
 		return DefaultFamilies().Detect(hostname)
 	}
 	lower := strings.ToLower(hostname)
+	for _, e := range s.exclude {
+		lower = strings.ReplaceAll(lower, e, "")
+	}
 	for _, d := range s.defs {
 		for _, m := range d.Match {
 			if strings.Contains(lower, m) {
@@ -132,4 +158,12 @@ func (s *FamilySet) Names() []Family {
 		out = append(out, Family(d.Name))
 	}
 	return out
+}
+
+// Excluded retourne les mots exclus de la détection.
+func (s *FamilySet) Excluded() []string {
+	if s == nil {
+		return nil
+	}
+	return append([]string(nil), s.exclude...)
 }
