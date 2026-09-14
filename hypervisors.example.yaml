@@ -10,7 +10,13 @@
 # ESXi : mode "rest" = API /rest/vcenter (vCenter UNIQUEMENT, défaut).
 # ESXi standalone v8 : mode "ssh" (vim-cmd via SSH). Prérequis côté ESXi :
 #   - activer SSH : Host > Manage > Services > TSM-SSH (Start + policy auto),
-#   - autoriser la clé : la coller dans /etc/ssh/keys-root/authorized_keys,
+#   - autoriser la clé : la coller dans /etc/ssh/keys-root/authorized_keys
+#     (droits 600, user root ; test manuel : ssh -i clé root@esxi
+#     "vim-cmd vmsvc/getallvms"),
+#   - "handshake failed ... publickey" = clé absente/refusée côté ESXi :
+#     vérifiez authorized_keys, ou renseignez le mot de passe root
+#     (ssh.password global ou sshPassword par VM ; keyboard-interactive
+#     supporté),
 #   - noms de VM sans espaces (limite du parsing vim-cmd).
 
 # vCenter (API REST https://<host>/rest/vcenter/vm)

@@ -145,8 +145,8 @@ func runCycle(st *store.Store, cfg *config.Config, hcfg *config.HypervisorsConfi
 		log.Printf("découverte: %s", e)
 	}
 	vms := inventory.MergeWithSet(cfg.StaticVMs, discovered, famSet)
-	if cfg.SSH.PrivateKeyPath == "" {
-		log.Print("collecte SSH désactivée (ssh.privateKeyPath vide)")
+	if !collector.SSHConfigured(cfg) {
+		log.Print("collecte SSH désactivée (ni clé ni mot de passe configurés)")
 		st.ReplaceVMs(vms)
 		return
 	}
@@ -161,6 +161,11 @@ func collectAll(st *store.Store, cfg *config.Config, vms []model.VM) {
 	for _, vm := range st.ListVMs() {
 		prev[vm.ID] = vm
 	}
+	// Credentials par VM (surcharges staticVMs), sinon globaux.
+	staticByID := make(map[string]config.StaticVM, len(cfg.StaticVMs))
+	for _, sv := range cfg.StaticVMs {
+		staticByID[sv.ID] = sv
+	}
 	timeout := time.Duration(cfg.SSH.TimeoutSeconds) * time.Second
 	var wg sync.WaitGroup
 	for i := range vms {
@@ -172,7 +177,11 @@ func collectAll(st *store.Store, cfg *config.Config, vms []model.VM) {
 			}
 			ctx, cancel := context.WithTimeout(context.Background(), timeout)
 			defer cancel()
-			data, err := collector.CollectFull(ctx, vm.IP, cfg.SSH, collector.DirsForFamily(cfg, string(vm.Family)))
+			vcfg := cfg.SSH
+			if sv, ok := staticByID[vm.ID]; ok {
+				vcfg.User, vcfg.Password = collector.ResolveAuth(sv.SSHUser, sv.SSHPassword, cfg.SSH)
+			}
+			data, err := collector.CollectFull(ctx, vm.IP, vcfg, collector.DirsForFamily(cfg, string(vm.Family)))
 			vm.LastSeen = time.Now().UTC()
 			if err != nil {
 				vm.Status = model.StatusError

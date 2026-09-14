@@ -152,7 +152,6 @@ func TestDiscoverAll_PartialFailure(t *testing.T) {
 		t.Fatalf("attendu 1 erreur agrégée, obtenu %v", rep.Errors)
 	}
 }
-
 func TestMergeWithSet_Renamed(t *testing.T) {
 	set, err := model.NewFamilySet([]model.FamilyDef{{Name: "sm"}, {Name: "wks", Match: []string{"wks"}}})
 	if err != nil {
@@ -162,6 +161,24 @@ func TestMergeWithSet_Renamed(t *testing.T) {
 	got := MergeWithSet(static, nil, set)
 	if len(got) != 1 || got[0].Family != "wks" {
 		t.Fatalf("famille renommée non détectée: %+v", got)
+	}
+}
+
+func TestMerge_SourceNamePropagated(t *testing.T) {
+	static := []config.StaticVM{{ID: "s1", Hostname: "sm-prod-01", IP: "10.0.0.1"}}
+	discovered := []DiscoveredVM{
+		{Name: "sm-prod-01", Source: model.HypervisorESXi, SourceName: "esx-08"},
+		{Name: "new-cm", Source: model.HypervisorKVM, SourceName: "kvm-01"},
+	}
+	got := Merge(static, discovered)
+	if len(got) != 2 {
+		t.Fatalf("attendu 2 VMs, obtenu %d", len(got))
+	}
+	if got[0].HypervisorName != "esx-08" {
+		t.Fatalf("nom hyperviseur non propagé (match): %+v", got[0])
+	}
+	if got[1].HypervisorName != "kvm-01" {
+		t.Fatalf("nom hyperviseur non propagé (nouvelle): %+v", got[1])
 	}
 }
 

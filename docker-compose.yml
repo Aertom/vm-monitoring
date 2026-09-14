@@ -12,6 +12,7 @@ services:
   backend:
     build: .
     image: localhost/vm-monitoring-backend:latest
+    user: "${UID:-65532}:${GID:-65532}"
     networks:
       vmmon:
         ipv4_address: 172.28.99.10

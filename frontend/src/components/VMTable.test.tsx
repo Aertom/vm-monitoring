@@ -53,14 +53,33 @@ describe('VMTable', () => {
     expect(screen.queryByText(/Checked Out At/i)).not.toBeInTheDocument();
   });
 
+  it('affiche le nom hyperviseur (découverte) sinon le type', () => {
+    const discovered: VM[] = [
+      { id: 'sm1', hostname: 'sm-prod-01', ip: '10.0.0.1', family: 'sm', status: 'ok', hypervisor: 'esxi', hypervisorName: 'esx-08' },
+      { id: 'cm1', hostname: 'cm-prod-01', ip: '10.0.0.2', family: 'cm', status: 'ok', hypervisor: 'static' },
+      { id: 'x1', hostname: 'x-prod-01', ip: '10.0.0.9', family: 'unknown', status: 'unknown' },
+    ];
+    render(<VMTable vms={discovered} families={['sm', 'cm', 'unknown']} loading={false} />);
+    expect(screen.getByText('esx-08')).toBeInTheDocument();
+    expect(screen.getByText('static')).toBeInTheDocument();
+  });
+
   it('accepte une famille configurée (wks) sans classe dédiée', () => {
     const custom: VM[] = [
-      { id: 'w1', hostname: 'wks-prod-01', ip: '10.0.0.7', family: 'wks', status: 'ok' },
+      { id: 'w1', hostname: 'wks-prod-01', ip: '10.0.0.1', family: 'wks', status: 'ok' },
     ];
     render(<VMTable vms={custom} families={['wks']} loading={false} />);
     expect(screen.getByText('wks-prod-01')).toBeInTheDocument();
     expect(screen.getByText('wks')).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText(/Filter by Family/i), { target: { value: 'wks' } });
     expect(screen.getByText('wks-prod-01')).toBeInTheDocument();
+  });
+
+  it('affiche la cause au survol du statut error', () => {
+    const failed: VM[] = [
+      { id: 'cm1', hostname: 'cm-prod-01', ip: '10.0.0.2', family: 'cm', status: 'error', lastError: 'connexion ssh 10.0.0.2: timeout' },
+    ];
+    render(<VMTable vms={failed} families={['cm']} loading={false} />);
+    expect(screen.getByTitle('connexion ssh 10.0.0.2: timeout')).toHaveTextContent('error');
   });
 });

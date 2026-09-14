@@ -20,10 +20,12 @@ export interface VM {
   family: Family;
   status: Status;
   hypervisor?: string;
+  hypervisorName?: string;
   groupId?: string;
   apps?: AppVersion[];
   inUseBy?: string;
   checkedOutAt?: string;
+  lastError?: string;
 }
 
 export interface Group {

@@ -59,6 +59,9 @@ type VM struct {
 	Family Family `json:"family"`
 	// Hypervisor est la source de découverte de cette VM.
 	Hypervisor Hypervisor `json:"hypervisor"`
+	// HypervisorName est le nom logique de l'hyperviseur dans hypervisors.yaml
+	// (ex: esx-01), pour les VMs détectées automatiquement. Vide sinon.
+	HypervisorName string `json:"hypervisorName,omitempty"`
 	// Status est le dernier statut de joignabilité SSH connu.
 	Status Status `json:"status"`
 	// Apps liste les applications/versions détectées lors de la dernière collecte.

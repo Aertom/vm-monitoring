@@ -107,7 +107,7 @@ func discoverESXi(ctx context.Context, cfg config.ESXiConfig, sshCfg config.SSHC
 		timeout := time.Duration(sshCfg.TimeoutSeconds) * time.Second
 		return discoverESXiSSH(ctx, label, &collector.SSHExecutor{
 			Host: host, User: user, Port: 22,
-			KeyPath: sshCfg.PrivateKeyPath, Timeout: timeout,
+			KeyPath: sshCfg.PrivateKeyPath, Password: sshCfg.Password, Timeout: timeout,
 		})
 	}
 	d := esxi.NewDiscoverer(esxi.Config{
@@ -209,7 +209,7 @@ func discoverKVM(ctx context.Context, cfg config.KVMConfig, sshCfg config.SSHCon
 		if user == "" {
 			user = sshCfg.User
 		}
-		ex = &collector.SSHExecutor{Host: cfg.Host, User: user, Port: cfg.Port, KeyPath: sshCfg.PrivateKeyPath, Timeout: timeout}
+		ex = &collector.SSHExecutor{Host: cfg.Host, User: user, Port: cfg.Port, KeyPath: sshCfg.PrivateKeyPath, Password: sshCfg.Password, Timeout: timeout}
 	}
 	c, err := kvm.NewClient(ex)
 	if err != nil {
@@ -338,16 +338,18 @@ func MergeWithSet(static []config.StaticVM, discovered []DiscoveredVM, set *mode
 		}
 		if i, ok := byName[strings.ToLower(d.Name)]; ok {
 			out[i].Hypervisor = d.Source
+			out[i].HypervisorName = d.SourceName
 			continue
 		}
 		id := "disc-" + string(d.Source) + "-" + slug(d.Name)
 		out = append(out, model.VM{
-			ID:         id,
-			Hostname:   d.Name,
-			Family:     set.Detect(d.Name),
-			Hypervisor: d.Source,
-			Status:     model.StatusUnknown,
-			LastSeen:   now,
+			ID:             id,
+			Hostname:       d.Name,
+			Family:         set.Detect(d.Name),
+			Hypervisor:     d.Source,
+			HypervisorName: d.SourceName,
+			Status:         model.StatusUnknown,
+			LastSeen:       now,
 		})
 		byName[strings.ToLower(d.Name)] = len(out) - 1
 	}

@@ -104,17 +104,37 @@ func expandPath(p string) string {
 	return p
 }
 
-// Dial établit une connexion SSH (clé privée) vers l'hôte donné.
+// Dial établit une connexion SSH vers l'hôte donné (clé privée et/ou mot
+// de passe ; au moins une méthode requise).
 // Exporté pour les exécuteurs distants (ex: virsh via SSH vers un hôte KVM).
-func Dial(ctx context.Context, ip, user string, port int, keyPath string, timeout time.Duration) (*ssh.Client, error) {
-	keyPath = expandPath(keyPath)
-	key, err := os.ReadFile(keyPath)
-	if err != nil {
-		return nil, fmt.Errorf("clé ssh: %w", err)
+func Dial(ctx context.Context, ip, user string, port int, keyPath, password string, timeout time.Duration) (*ssh.Client, error) {
+	var auths []ssh.AuthMethod
+	if keyPath = expandPath(keyPath); keyPath != "" {
+		key, err := os.ReadFile(keyPath)
+		if err != nil {
+			return nil, fmt.Errorf("clé ssh: %w", err)
+		}
+		signer, err := ssh.ParsePrivateKey(key)
+		if err != nil {
+			return nil, fmt.Errorf("clé ssh invalide: %w", err)
+		}
+		auths = append(auths, ssh.PublicKeys(signer))
 	}
-	signer, err := ssh.ParsePrivateKey(key)
-	if err != nil {
-		return nil, fmt.Errorf("clé ssh invalide: %w", err)
+	if password != "" {
+		auths = append(auths, ssh.Password(password))
+		// Certains serveurs (ESXi, équipements) n'annoncent que
+		// keyboard-interactive : on y répond par le mot de passe.
+		auths = append(auths, ssh.KeyboardInteractive(
+			func(user, instruction string, questions []string, echos []bool) ([]string, error) {
+				answers := make([]string, len(questions))
+				for i := range answers {
+					answers[i] = password
+				}
+				return answers, nil
+			}))
+	}
+	if len(auths) == 0 {
+		return nil, fmt.Errorf("ssh: aucune méthode d'authentification (clé ou mot de passe)")
 	}
 	if port <= 0 {
 		port = 22
@@ -129,7 +149,7 @@ func Dial(ctx context.Context, ip, user string, port int, keyPath string, timeou
 	}
 	c, chans, reqs, err := ssh.NewClientConn(conn, addr, &ssh.ClientConfig{
 		User:            user,
-		Auth:            []ssh.AuthMethod{ssh.PublicKeys(signer)},
+		Auth:            auths,
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 		Timeout:         timeout,
 	})
@@ -157,20 +177,52 @@ func runCmd(ctx context.Context, client *ssh.Client, cmd string) (string, error)
 	return string(out), nil
 }
 
-// SSHExecutor exécute des commandes sur un hôte distant via SSH (clé privée).
-// Signature compatible avec kvm.CommandExecutor (sans en dépendre) : sert
-// pour virsh distant comme pour vim-cmd sur ESXi standalone.
+// ResolveAuth détermine user/mot de passe effectifs : valeurs par VM
+// prioritaires, sinon globales.
+func ResolveAuth(staticUser, staticPass string, global config.SSHConfig) (string, string) {
+	user := global.User
+	if staticUser != "" {
+		user = staticUser
+	}
+	pass := global.Password
+	if staticPass != "" {
+		pass = staticPass
+	}
+	return user, pass
+}
+
+// SSHConfigured indique si une collecte SSH est possible : clé configurée
+// ou mot de passe (global ou par VM).
+func SSHConfigured(cfg *config.Config) bool {
+	if cfg == nil {
+		return false
+	}
+	if cfg.SSH.PrivateKeyPath != "" || cfg.SSH.Password != "" {
+		return true
+	}
+	for _, sv := range cfg.StaticVMs {
+		if sv.SSHPassword != "" {
+			return true
+		}
+	}
+	return false
+}
+
+// SSHExecutor exécute des commandes sur un hôte distant via SSH.
+// Clé privée et/ou mot de passe. Signature compatible avec
+// kvm.CommandExecutor (sans en dépendre).
 type SSHExecutor struct {
-	Host    string
-	User    string
-	Port    int
-	KeyPath string
-	Timeout time.Duration
+	Host     string
+	User     string
+	Port     int
+	KeyPath  string
+	Password string
+	Timeout  time.Duration
 }
 
 // Run exécute name + args sur l'hôte distant (une connexion par appel).
 func (e *SSHExecutor) Run(ctx context.Context, name string, args ...string) (string, error) {
-	client, err := Dial(ctx, e.Host, e.User, e.Port, e.KeyPath, e.Timeout)
+	client, err := Dial(ctx, e.Host, e.User, e.Port, e.KeyPath, e.Password, e.Timeout)
 	if err != nil {
 		return "", err
 	}
@@ -196,7 +248,7 @@ func CollectFull(ctx context.Context, ip string, sshCfg config.SSHConfig, dirs [
 		dirs = DefaultAppDirs()
 	}
 	timeout := time.Duration(sshCfg.TimeoutSeconds) * time.Second
-	client, err := Dial(ctx, ip, sshCfg.User, sshCfg.Port, sshCfg.PrivateKeyPath, timeout)
+	client, err := Dial(ctx, ip, sshCfg.User, sshCfg.Port, sshCfg.PrivateKeyPath, sshCfg.Password, timeout)
 	if err != nil {
 		return data, err
 	}

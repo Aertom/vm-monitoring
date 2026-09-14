@@ -8,13 +8,16 @@ interface VMTableProps {
   loading: boolean;
 }
 
-type VMSortKey = 'hostname' | 'ip' | 'family' | 'status' | 'groupId' | 'version' | 'inUseBy';
+type VMSortKey = 'hostname' | 'ip' | 'hypervisor' | 'family' | 'status' | 'groupId' | 'version' | 'inUseBy';
 
 const versionLabel = (vm: VM): string =>
   (vm.apps ?? []).map((a) => (a.version ? `${a.name} ${a.version}` : a.name)).join(', ');
 
+const hypervisorLabel = (vm: VM): string => vm.hypervisorName || vm.hypervisor || '';
+
 const vmSortValue = (vm: VM, key: VMSortKey): string => {
   if (key === 'version') return versionLabel(vm);
+  if (key === 'hypervisor') return hypervisorLabel(vm);
   return vm[key] ?? '';
 };
 
@@ -93,6 +96,7 @@ export const VMTable: React.FC<VMTableProps> = ({
             <tr>
               {th('Hostname', 'hostname')}
               {th('IP Address', 'ip')}
+              {th('Hypervisor', 'hypervisor')}
               {th('Family', 'family')}
               {th('Status', 'status')}
               {th('Group', 'groupId')}
@@ -105,12 +109,15 @@ export const VMTable: React.FC<VMTableProps> = ({
               <tr key={vm.id} className={`status-${vm.status}`}>
                 <td>{vm.hostname}</td>
                 <td>{vm.ip}</td>
+                <td title={vm.hypervisorName ? `type: ${vm.hypervisor || '?'}` : ''}>
+                  {hypervisorLabel(vm) ? <span className="id-chip">{hypervisorLabel(vm)}</span> : '-'}
+                </td>
                 <td>
                   <span className={`family-badge family-${vm.family}`}>
                     {vm.family}
                   </span>
                 </td>
-                <td><span className={`pill pill-${vm.status}`}>{vm.status}</span></td>
+                <td><span className={`pill pill-${vm.status}`} title={vm.status === 'error' && vm.lastError ? vm.lastError : undefined}>{vm.status}</span></td>
                 <td title={vm.groupId || ''}>{vm.groupId ? <span className="id-chip">{vm.groupId.slice(0, 8)}</span> : '-'}</td>
                 <td title={versionLabel(vm)}>
                   {vm.apps?.length ? (

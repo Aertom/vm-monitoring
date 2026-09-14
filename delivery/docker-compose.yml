@@ -7,6 +7,7 @@
 services:
   backend:
     image: localhost/vm-monitoring-backend:0.3.0
+    user: "${UID:-65532}:${GID:-65532}"
     networks:
       vmmon:
         ipv4_address: 172.28.99.10
@@ -14,9 +15,9 @@ services:
       - ./config.yaml:/config.yaml:ro,z
       - ./hypervisors.yaml:/hypervisors.yaml:ro,z
       # Clé SSH pour la collecte des versions (chemin vu PAR LE CONTENEUR).
-      # À décommenter après avoir copié votre clé dans ./id_ed25519 (chmod 600)
+      # À décommenter après avoir copié votre clé dans ./id_rsa (chmod 600)
       # et renseigné privateKeyPath: "/ssh/key" dans config.yaml.
-      # - ./id_ed25519:/ssh/key:ro,z
+      # - ./id_rsa:/ssh/key:ro,Z
     ports:
       - "${BACKEND_PORT:-8080}:8080"
     restart: unless-stopped

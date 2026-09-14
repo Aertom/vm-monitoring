@@ -40,6 +40,9 @@ type Config struct {
 type SSHConfig struct {
 	User           string `yaml:"user"`
 	PrivateKeyPath string `yaml:"privateKeyPath"`
+	// Password est le repli si la clé est absente (texte clair : chmod 600,
+	// fichier ignoré par git). Vide = auth par clé uniquement.
+	Password       string `yaml:"password"`
 	Port           int    `yaml:"port"`
 	TimeoutSeconds int    `yaml:"timeoutSeconds"`
 }
@@ -50,6 +53,10 @@ type StaticVM struct {
 	ID       string `yaml:"id"`
 	Hostname string `yaml:"hostname"`
 	IP       string `yaml:"ip"`
+	// SSHUser/SSHPassword surchargent le user/mot de passe SSH globaux
+	// pour cette VM (vide = global). Jamais exposés via l'API.
+	SSHUser     string `yaml:"sshUser"`
+	SSHPassword string `yaml:"sshPassword"`
 }
 
 // HypervisorsConfig est la configuration des hyperviseurs à interroger pour

@@ -14,6 +14,7 @@ pollIntervalSeconds: 60
 ssh:
   user: "monitor"
   privateKeyPath: "/home/monitor/.ssh/id_ed25519"
+  # password: "change-me"  # repli si pas de clé (texte clair : chmod 600)
   port: 22
   timeoutSeconds: 5
 
@@ -46,10 +47,12 @@ staticVMs:
     hostname: "sm-prod-02"
     ip: "192.168.1.11"
 
-  # Compute Nodes (cm) — 4 produits suivis dans /opt et /appli
+  # Compute Nodes (cm)
   - id: "vm-cm-01"
     hostname: "cm-prod-01"
     ip: "192.168.1.20"
+    # sshUser: "root"            # surcharge du user SSH global pour cette VM
+    # sshPassword: "change-me"  # surcharge du mot de passe (jamais exposé à l'API)
   - id: "vm-cm-02"
     hostname: "cm-prod-02"
     ip: "192.168.1.21"

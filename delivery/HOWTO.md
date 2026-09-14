@@ -42,9 +42,19 @@ podman images | grep vm-monitoring
    découverte est ajoutée sans IP (`disc-...`, visible mais non collectée).
    Fichier absent ou vide = découverte désactivée, statique seul.
 2. Collecte des versions (optionnel) : copiez votre clé privée SSH dans
-   `./id_ed25519` (`chmod 600`), mettez `privateKeyPath: "/ssh/key"` et
-   **décommentez** le volume `./id_ed25519` dans `docker-compose.yml`.
-   Par défaut la collecte est désactivée (versions `unknown`).
+   `./id_rsa` (`chmod 600`, même user que podman), mettez
+   `privateKeyPath: "/ssh/key"` et **décommentez** le volume `./id_rsa`
+   dans `docker-compose.yml`. Par défaut la collecte est désactivée
+   (versions `unknown`).
+   Pourquoi `user: "${UID}..."` dans le compose : l'image backend tourne
+   en nonroot (65532), donc sans ça votre clé en `600` reste illisible
+   (`open /ssh/key: permission denied`). Exportez les variables avant
+   le `up` (UID existe en bash mais non exporté, GID à créer) :
+   ```sh
+   export UID; export GID="$(id -g)"
+   podman-compose up -d
+   ```
+   `:Z` (majuscule) = relabel SELinux privé au conteneur, adapté à une clé.
 3. Rien à configurer côté frontend : il appelle l'API en relatif
    (`/api/...`) via le proxy nginx intégré.
 
