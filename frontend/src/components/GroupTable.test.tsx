@@ -76,6 +76,16 @@ describe('GroupTable', () => {
     expect(headings[1]).toHaveTextContent('g2');
   });
 
+  it('trie par statut : available ou checked out dabord', () => {
+    render(<GroupTable groups={groups} onGroupsUpdated={jest.fn()} loading={false} />);
+    const titles = () => screen.getAllByRole('heading', { level: 3 }).map((h) => h.textContent);
+    expect(titles()[0]).toContain('g1');
+    fireEvent.change(screen.getByLabelText(/Sort by/i), { target: { value: 'checkedout-first' } });
+    expect(titles()[0]).toContain('g2');
+    fireEvent.change(screen.getByLabelText(/Sort by/i), { target: { value: 'available-first' } });
+    expect(titles()[0]).toContain('g1');
+  });
+
   it('renomme un groupe', async () => {
     const onUpdated = jest.fn();
     (mocked.renameGroup as jest.Mock).mockResolvedValue({});

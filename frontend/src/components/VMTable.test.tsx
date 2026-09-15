@@ -98,19 +98,16 @@ describe('VMTable', () => {
     expect(screen.queryByText('x-prod-01')).not.toBeInTheDocument();
   });
 
-  it('affiche le nom du groupe et ouvre ssh:// + copie', async () => {
+  it('affiche le nom du groupe et copie la commande SSH', async () => {
     const withGroup: VM[] = [
       { id: 'sm1', hostname: 'sm-prod-01', ip: '10.0.0.1', family: 'sm', status: 'ok', groupId: 'g1', groupName: 'prod' },
     ];
     const writeText = jest.fn().mockResolvedValue(undefined);
     Object.assign(navigator, { clipboard: { writeText } });
-    const openSpy = jest.spyOn(window, 'open').mockReturnValue(null);
     render(<VMTable vms={withGroup} families={['sm']} loading={false} />);
     expect(screen.getByText('prod')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /Connect .* via SSH/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Copy SSH command/i }));
     await waitFor(() => expect(writeText).toHaveBeenCalledWith('ssh -XAC admin@10.0.0.1'));
-    expect(openSpy).toHaveBeenCalledWith('ssh://admin@10.0.0.1', '_blank', 'noopener');
     expect(await screen.findByText('Copied')).toBeInTheDocument();
-    openSpy.mockRestore();
   });
 });

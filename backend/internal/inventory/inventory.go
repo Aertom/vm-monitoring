@@ -33,6 +33,8 @@ type DiscoveredVM struct {
 	Name string
 	// PowerState est l'état remonté (ex: poweredOn), vide si inconnu.
 	PowerState string
+	// IP est l'adresse invitée quand l'hyperviseur l'expose (vide sinon).
+	IP string
 	// Source est le type d'hyperviseur (esxi, nutanix, kvm).
 	Source model.Hypervisor
 	// SourceName est le nom logique de l'hyperviseur dans hypervisors.yaml.
@@ -121,34 +123,71 @@ func discoverESXi(ctx context.Context, cfg config.ESXiConfig, sshCfg config.SSHC
 	if err != nil {
 		return nil, fmt.Errorf("esxi %s: %w", displayName(cfg.Name, host), err)
 	}
-	out := make([]DiscoveredVM, 0, len(vms))
-	for _, vm := range vms {
-		out = append(out, DiscoveredVM{
-			Name:       vm.Name,
-			PowerState: vm.PowerState,
-			Source:     model.HypervisorESXi,
-			SourceName: label,
-		})
+	out := make([]DiscoveredVM, len(vms))
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, 8)
+	for i := range vms {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			select {
+			case sem <- struct{}{}:
+				defer func() { <-sem }()
+			case <-ctx.Done():
+				return
+			}
+			// Best-effort : sans Tools, pas d'IP mais la VM reste listée.
+			ip, _ := d.GuestIP(ctx, vms[i].ID)
+			out[i] = DiscoveredVM{
+				Name:       vms[i].Name,
+				PowerState: vms[i].PowerState,
+				IP:         ip,
+				Source:     model.HypervisorESXi,
+				SourceName: label,
+			}
+		}(i)
 	}
+	wg.Wait()
 	return out, nil
 }
 
 // discoverESXiSSH liste les VMs d'un ESXi standalone via
 // `vim-cmd vmsvc/getallvms` (pas de PowerState sur cette voie).
+// L'IP invitée est lue via `vim-cmd vmsvc/get.guest <vmid>` (best-effort).
 func discoverESXiSSH(ctx context.Context, label string, ex kvm.CommandExecutor) ([]DiscoveredVM, error) {
 	out, err := ex.Run(ctx, "vim-cmd", "vmsvc/getallvms")
 	if err != nil {
 		return nil, fmt.Errorf("esxi %s: %w", label, err)
 	}
 	raw := esxi.ParseVimCmdGetAllVMs(out)
-	mapped := make([]DiscoveredVM, 0, len(raw))
-	for _, vm := range raw {
-		mapped = append(mapped, DiscoveredVM{
-			Name:       vm.Name,
-			Source:     model.HypervisorESXi,
-			SourceName: label,
-		})
+	mapped := make([]DiscoveredVM, len(raw))
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, 8)
+	for i := range raw {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			select {
+			case sem <- struct{}{}:
+				defer func() { <-sem }()
+			case <-ctx.Done():
+				return
+			}
+			ip := ""
+			if raw[i].ID != "" {
+				if gout, err := ex.Run(ctx, "vim-cmd", "vmsvc/get.guest", raw[i].ID); err == nil {
+					ip = esxi.ParseGuestIPAddress(gout)
+				}
+			}
+			mapped[i] = DiscoveredVM{
+				Name:       raw[i].Name,
+				IP:         ip,
+				Source:     model.HypervisorESXi,
+				SourceName: label,
+			}
+		}(i)
 	}
+	wg.Wait()
 	return mapped, nil
 }
 
@@ -173,9 +212,14 @@ func discoverAHV(ctx context.Context, cfg config.NutanixConfig) ([]DiscoveredVM,
 	}
 	out := make([]DiscoveredVM, 0, len(vms))
 	for _, vm := range vms {
+		ip := ""
+		if len(vm.IPAddresses) > 0 {
+			ip = vm.IPAddresses[0]
+		}
 		out = append(out, DiscoveredVM{
 			Name:       vm.Name,
 			PowerState: vm.PowerState,
+			IP:         ip,
 			Source:     model.HypervisorNutanix,
 			SourceName: displayName(cfg.Name, host),
 		})
@@ -219,21 +263,37 @@ func discoverKVM(ctx context.Context, cfg config.KVMConfig, sshCfg config.SSHCon
 }
 
 // discoverKVMWithExecutor liste les VMs via un client déjà construit
-// (point d'injection pour les tests).
+// (point d'injection pour les tests). L'IP est lue via `virsh domifaddr`
+// (best-effort : agent invité ou baux DHCP requis).
 func discoverKVMWithExecutor(ctx context.Context, label string, c *kvm.Client) ([]DiscoveredVM, error) {
 	vms, err := c.ListVMs(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("kvm %s: %w", label, err)
 	}
-	out := make([]DiscoveredVM, 0, len(vms))
-	for _, vm := range vms {
-		out = append(out, DiscoveredVM{
-			Name:       vm.Name,
-			PowerState: vm.State,
-			Source:     model.HypervisorKVM,
-			SourceName: label,
-		})
+	out := make([]DiscoveredVM, len(vms))
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, 8)
+	for i := range vms {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			select {
+			case sem <- struct{}{}:
+				defer func() { <-sem }()
+			case <-ctx.Done():
+				return
+			}
+			ip, _ := c.GetPrimaryIP(ctx, vms[i].Name)
+			out[i] = DiscoveredVM{
+				Name:       vms[i].Name,
+				PowerState: vms[i].State,
+				IP:         ip,
+				Source:     model.HypervisorKVM,
+				SourceName: label,
+			}
+		}(i)
 	}
+	wg.Wait()
 	return out, nil
 }
 
@@ -339,12 +399,16 @@ func MergeWithSet(static []config.StaticVM, discovered []DiscoveredVM, set *mode
 		if i, ok := byName[strings.ToLower(d.Name)]; ok {
 			out[i].Hypervisor = d.Source
 			out[i].HypervisorName = d.SourceName
+			if out[i].IP == "" {
+				out[i].IP = d.IP
+			}
 			continue
 		}
 		id := "disc-" + string(d.Source) + "-" + slug(d.Name)
 		out = append(out, model.VM{
 			ID:             id,
 			Hostname:       d.Name,
+			IP:             d.IP,
 			Family:         set.Detect(d.Name),
 			Hypervisor:     d.Source,
 			HypervisorName: d.SourceName,

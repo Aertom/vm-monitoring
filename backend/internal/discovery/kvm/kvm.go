@@ -12,6 +12,7 @@ package kvm
 import (
 	"context"
 	"fmt"
+	"net"
 	"strconv"
 	"strings"
 )
@@ -139,6 +140,37 @@ func (c *Client) GetVMDetails(ctx context.Context, name string) (VM, error) {
 	}
 
 	return vm, nil
+}
+
+// ParseDomIfAddr extrait la première IPv4 non-loopback de la sortie de
+// `virsh domifaddr <domaine>` (agent invité ou baux DHCP). Vide si aucune.
+func ParseDomIfAddr(out string) string {
+	for _, line := range strings.Split(out, "\n") {
+		fields := strings.Fields(strings.TrimSpace(line))
+		if len(fields) < 4 || !strings.EqualFold(fields[2], "ipv4") {
+			continue
+		}
+		ip := strings.SplitN(fields[3], "/", 2)[0]
+		parsed := net.ParseIP(ip)
+		if parsed == nil || parsed.To4() == nil || parsed.IsLoopback() {
+			continue
+		}
+		return ip
+	}
+	return ""
+}
+
+// GetPrimaryIP interroge `virsh domifaddr` pour l'IP principale d'un domaine.
+// Retourne "" sans erreur si l'invité n'expose aucune IP.
+func (c *Client) GetPrimaryIP(ctx context.Context, name string) (string, error) {
+	if name == "" {
+		return "", fmt.Errorf("kvm: vm name is required")
+	}
+	out, err := c.executor.Run(ctx, "virsh", "domifaddr", name)
+	if err != nil {
+		return "", fmt.Errorf("kvm: running virsh domifaddr: %w", err)
+	}
+	return ParseDomIfAddr(out), nil
 }
 
 // splitDominfoLine sépare une ligne "Clé:   Valeur" issue de virsh dominfo.

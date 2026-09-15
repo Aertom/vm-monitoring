@@ -165,20 +165,30 @@ func TestMergeWithSet_Renamed(t *testing.T) {
 }
 
 func TestMerge_SourceNamePropagated(t *testing.T) {
-	static := []config.StaticVM{{ID: "s1", Hostname: "sm-prod-01", IP: "10.0.0.1"}}
+	static := []config.StaticVM{
+		{ID: "s1", Hostname: "sm-prod-01", IP: "10.0.0.1"},
+		{ID: "s2", Hostname: "cm-prod-01"},
+	}
 	discovered := []DiscoveredVM{
-		{Name: "sm-prod-01", Source: model.HypervisorESXi, SourceName: "esx-08"},
-		{Name: "new-cm", Source: model.HypervisorKVM, SourceName: "kvm-01"},
+		{Name: "sm-prod-01", IP: "192.168.9.9", Source: model.HypervisorESXi, SourceName: "esx-08"},
+		{Name: "cm-prod-01", IP: "10.0.0.2", Source: model.HypervisorKVM, SourceName: "kvm-01"},
+		{Name: "new-cm", IP: "10.0.0.3", Source: model.HypervisorKVM, SourceName: "kvm-01"},
 	}
 	got := Merge(static, discovered)
-	if len(got) != 2 {
-		t.Fatalf("attendu 2 VMs, obtenu %d", len(got))
+	if len(got) != 3 {
+		t.Fatalf("attendu 3 VMs, obtenu %d", len(got))
 	}
 	if got[0].HypervisorName != "esx-08" {
 		t.Fatalf("nom hyperviseur non propagé (match): %+v", got[0])
 	}
-	if got[1].HypervisorName != "kvm-01" {
-		t.Fatalf("nom hyperviseur non propagé (nouvelle): %+v", got[1])
+	if got[0].IP != "10.0.0.1" {
+		t.Fatalf("l'IP statique doit primer: %+v", got[0])
+	}
+	if got[1].IP != "10.0.0.2" {
+		t.Fatalf("l'IP découverte devrait combler le vide statique: %+v", got[1])
+	}
+	if got[2].IP != "10.0.0.3" || got[2].HypervisorName != "kvm-01" {
+		t.Fatalf("VM ajoutée incorrecte: %+v", got[2])
 	}
 }
 

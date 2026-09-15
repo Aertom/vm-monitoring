@@ -43,3 +43,6 @@ collecte SSH → `store.ReplaceVMs`. Dernier rapport sur `GET /api/discovery`.
 - L'authentification TLS `insecure` est honorée par `inventory` (client HTTP
   dédié), car `esxi`/`ahv` ne la gèrent pas eux-mêmes.
 - KVM distant passe par SSH avec la même clé que les VMs (`ssh.*`).
+- IPs invitées (best-effort) : ESXi REST via guest identity (+ session auto
+  en cas de 401), ESXi SSH via `get.guest`, KVM via `virsh domifaddr`,
+  AHV via `ipAddresses` si Prism les expose. L'IP statique prime toujours.

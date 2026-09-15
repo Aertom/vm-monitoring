@@ -19,7 +19,8 @@
 #     supporté),
 #   - noms de VM sans espaces (limite du parsing vim-cmd).
 
-# vCenter (API REST https://<host>/rest/vcenter/vm)
+# vCenter (API REST https://<host>/rest/vcenter/vm ; IPs via guest identity,
+# session auto si le basic-auth par requête est refusé en 401)
 esxi:
   - name: "vc-01"
     url: "https://vcenter.lan"

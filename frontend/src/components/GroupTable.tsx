@@ -21,10 +21,17 @@ export const GroupTable: React.FC<GroupTableProps> = ({
   const [userInputs, setUserInputs] = useState<Record<string, string>>({});
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [nameInputs, setNameInputs] = useState<Record<string, string>>({});
+  const [sortMode, setSortMode] = useState<'name' | 'available-first' | 'checkedout-first'>('name');
 
-  const sortedGroups = [...groups].sort((a, b) =>
-    groupTitle(a).localeCompare(groupTitle(b))
-  );
+  const sortedGroups = [...groups].sort((a, b) => {
+    if (sortMode !== 'name') {
+      const rank = (g: Group) => (g.status === 'available' ? 0 : 1);
+      const order = sortMode === 'available-first' ? 1 : -1;
+      const diff = (rank(a) - rank(b)) * order;
+      if (diff !== 0) return diff;
+    }
+    return groupTitle(a).localeCompare(groupTitle(b));
+  });
 
   const handleCheckout = async (groupId: string) => {
     const user = (userInputs[groupId] || '').trim();
@@ -94,6 +101,21 @@ export const GroupTable: React.FC<GroupTableProps> = ({
 
   return (
     <div className="group-list">
+      <div className="group-list-header">
+        <h2>Groups</h2>
+        <div className="family-filter">
+          <label htmlFor="group-sort-select">Sort by:</label>
+          <select
+            id="group-sort-select"
+            value={sortMode}
+            onChange={(e) => setSortMode(e.target.value as typeof sortMode)}
+          >
+            <option value="name">Name</option>
+            <option value="available-first">Available first</option>
+            <option value="checkedout-first">Checked out first</option>
+          </select>
+        </div>
+      </div>
       {sortedGroups.map((group) => (
         <section key={group.id} aria-label={`Group ${groupTitle(group)}`} className="group-table-container group-card">
           <div className="group-card-header">

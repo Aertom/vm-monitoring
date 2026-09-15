@@ -25,6 +25,9 @@ type VM struct {
 	NumVCPUs   int    `json:"num_vcpus"`
 	MemoryMB   int64  `json:"memory_mb"`
 	HostUUID   string `json:"host_uuid"`
+	// IPAddresses liste les IPs invitées quand Prism les expose
+	// (guest tools). Absent = vide, sans erreur.
+	IPAddresses []string `json:"ipAddresses,omitempty"`
 }
 
 // vmListResponse modélise la réponse paginée de l'API Prism v2 /vms.

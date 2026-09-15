@@ -106,3 +106,39 @@ func TestGetVMDetails_EmptyName(t *testing.T) {
 		t.Fatal("expected error for empty name, got nil")
 	}
 }
+
+func TestParseDomIfAddr(t *testing.T) {
+	out := `Name       MAC address          Protocol     Address
+---------------------------------------------------
+vnet0      52:54:00:12:34:56    ipv4         192.168.122.10/24
+vnet1      52:54:00:12:34:57    ipv6         fe80::5054:ff:fe12:3457/64
+`
+	if got := ParseDomIfAddr(out); got != "192.168.122.10" {
+		t.Fatalf("IP=%q", got)
+	}
+	if got := ParseDomIfAddr("Name MAC\n---\n"); got != "" {
+		t.Fatalf("attendu vide, obtenu %q", got)
+	}
+	// Loopback ignorée au profit de la suivante.
+	loop := "Name MAC Protocol Address\n---\nvnet0 m ipv4 127.0.0.2/8\nvnet1 m ipv4 10.0.0.3/24\n"
+	if got := ParseDomIfAddr(loop); got != "10.0.0.3" {
+		t.Fatalf("IP=%q", got)
+	}
+}
+
+func TestGetPrimaryIP(t *testing.T) {
+	exec := &mockExecutor{outputs: map[string]string{
+		"virsh [domifaddr web-01]": "Name MAC Protocol Address\n---\nvnet0 m ipv4 10.0.0.8/24\n",
+	}}
+	c, _ := NewClient(exec)
+	ip, err := c.GetPrimaryIP(context.Background(), "web-01")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ip != "10.0.0.8" {
+		t.Fatalf("IP=%q", ip)
+	}
+	if _, err := c.GetPrimaryIP(context.Background(), ""); err == nil {
+		t.Fatal("expected error for empty name, got nil")
+	}
+}

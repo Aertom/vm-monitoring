@@ -26,10 +26,8 @@ export async function copyText(text: string): Promise<boolean> {
 
 export const sshCommand = (vm: VM): string => `ssh -XAC admin@${vm.ip}`;
 
-// Bouton SSH : ouvre ssh://admin@ip dans le terminal local (géré par l'OS :
-// macOS OK, Linux/Windows selon config) ET copie `ssh -XAC admin@ip` en
-// secours (à coller dans un terminal). Les flags -XAC peuvent aussi venir de
-// ~/.ssh/config (Host ... : ForwardX11/Agent/Compression).
+// Bouton SSH : copie `ssh -XAC admin@ip` dans le presse-papiers,
+// à coller dans un terminal.
 export const SshButton: React.FC<{ vm: VM }> = ({ vm }) => {
   const [copied, setCopied] = useState(false);
   const timer = useRef<number | null>(null);
@@ -39,17 +37,11 @@ export const SshButton: React.FC<{ vm: VM }> = ({ vm }) => {
 
   if (!vm.ip) return <span>-</span>;
   const cmd = sshCommand(vm);
-  const url = `ssh://admin@${vm.ip}`;
   const handleClick = async () => {
     if (await copyText(cmd)) {
       setCopied(true);
       if (timer.current !== null) window.clearTimeout(timer.current);
       timer.current = window.setTimeout(() => setCopied(false), 1500);
-      try {
-        window.open(url, '_blank', 'noopener');
-      } catch {
-        // Pas de gestionnaire ssh:// : la commande copiée suffit.
-      }
     } else {
       alert(`Copie impossible, commande : ${cmd}`);
     }
@@ -58,8 +50,8 @@ export const SshButton: React.FC<{ vm: VM }> = ({ vm }) => {
   return (
     <button
       onClick={handleClick}
-      title={`${cmd} (ouvre ${url})`}
-      aria-label={`Connect ${vm.hostname} via SSH (copies command)`}
+      title={cmd}
+      aria-label={`Copy SSH command for ${vm.hostname}`}
       className="btn-ssh"
     >
       {copied ? 'Copied' : 'SSH'}
