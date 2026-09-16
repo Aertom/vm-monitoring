@@ -96,6 +96,7 @@ func ParseEtcHosts(catOutput string) []model.EtcHostsEntry {
 type HostData struct {
 	Apps     []model.AppVersion
 	EtcHosts []model.EtcHostsEntry
+	OS       string
 }
 
 // expandPath résout le préfixe ~ vers le home directory (os.ReadFile ne
@@ -244,10 +245,37 @@ func (e *SSHExecutor) Run(ctx context.Context, name string, args ...string) (str
 	return out, nil
 }
 
+// ParseOSRelease extrait un nom d'OS affichable de /etc/os-release :
+// PRETTY_NAME en priorité, sinon NAME + VERSION_ID. Vide si inexploitable.
+func ParseOSRelease(out string) string {
+	vars := make(map[string]string)
+	for _, line := range strings.Split(out, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		k, v, ok := strings.Cut(line, "=")
+		if !ok {
+			continue
+		}
+		vars[strings.TrimSpace(k)] = strings.Trim(strings.TrimSpace(v), `"`)
+	}
+	if p := vars["PRETTY_NAME"]; p != "" {
+		return p
+	}
+	if n := vars["NAME"]; n != "" {
+		if v := vars["VERSION_ID"]; v != "" {
+			return n + " " + v
+		}
+		return n
+	}
+	return ""
+}
+
 // CollectFull se connecte en SSH à la VM et rapporte versions
-// d'applications + entrées /etc/hosts. Sans dossiers configurés, seules
-// les entrées /etc/hosts sont collectées (pas de versions). Un dossier
-// absent ou un /etc/hosts illisible n'échoue pas toute la collecte.
+// d'applications + entrées /etc/hosts + OS. Sans dossiers configurés, seules
+// les entrées /etc/hosts (et l'OS) sont collectées. Un dossier absent,
+// un /etc/hosts ou /etc/os-release illisible n'échoue pas la collecte.
 func CollectFull(ctx context.Context, ip string, sshCfg config.SSHConfig, dirs []string) (HostData, error) {
 	var data HostData
 	timeout := time.Duration(sshCfg.TimeoutSeconds) * time.Second
@@ -258,49 +286,67 @@ func CollectFull(ctx context.Context, ip string, sshCfg config.SSHConfig, dirs [
 	defer client.Close()
 
 	for _, dir := range dirs {
-		out, err := runCmd(ctx, client, "ls -1 -- "+shellQuote(dir))
+		out, err := runCmd(ctx, client, "ls -l -- "+shellQuote(dir))
 		if err != nil {
 			continue
 		}
-		for _, entry := range splitLines(out) {
-			display := entry
-			if target, ok := tryReadlink(ctx, client, dir, entry); ok {
-				display = target
+		for _, e := range ParseLsLong(out) {
+			display := e.name
+			if e.isLink {
+				display = e.target
 			}
-			data.Apps = append(data.Apps, appForEntry(entry, display))
+			data.Apps = append(data.Apps, appForEntry(e.name, display))
 		}
 	}
 	if out, err := runCmd(ctx, client, "cat /etc/hosts"); err == nil {
 		data.EtcHosts = ParseEtcHosts(out)
 	}
+	if out, err := runCmd(ctx, client, "cat /etc/os-release"); err == nil {
+		data.OS = ParseOSRelease(out)
+	}
 	return data, nil
 }
 
-// splitLines découpe une sortie multi-lignes en entrées non vides.
-func splitLines(out string) []string {
-	var entries []string
+// dirEntry est une entrée de dossier listée par `ls -l`.
+type dirEntry struct {
+	name   string
+	target string // cible si lien symbolique, "" sinon
+	isLink bool
+}
+
+// lastField retourne le dernier champ blanc-séparé (nom de fichier dans ls -l).
+func lastField(s string) string {
+	f := strings.Fields(s)
+	if len(f) == 0 {
+		return ""
+	}
+	return f[len(f)-1]
+}
+
+// ParseLsLong parse la sortie de `ls -l` en un seul appel : les liens
+// symboliques arrivent avec leur cible ("appli1 -> /appli/appli_1.2.3"),
+// sans commande readlink supplémentaire. La ligne "total" est ignorée.
+func ParseLsLong(out string) []dirEntry {
+	var entries []dirEntry
 	for _, line := range strings.Split(out, "\n") {
-		if line = strings.TrimSpace(line); line != "" {
-			entries = append(entries, line)
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "total ") {
+			continue
+		}
+		if idx := strings.Index(line, " -> "); idx >= 0 {
+			name := lastField(line[:idx])
+			target := strings.TrimSpace(line[idx+len(" -> "):])
+			if name == "" || target == "" {
+				continue
+			}
+			entries = append(entries, dirEntry{name: name, target: target, isLink: true})
+			continue
+		}
+		if name := lastField(line); name != "" {
+			entries = append(entries, dirEntry{name: name})
 		}
 	}
 	return entries
-}
-
-// tryReadlink résout un lien symbolique : retourne la cible brute si
-// dir/entry est un lien, false sinon (ou en cas d'erreur).
-func tryReadlink(ctx context.Context, client *ssh.Client, dir, entry string) (string, bool) {
-	if strings.Contains(entry, "/") {
-		return "", false
-	}
-	out, err := runCmd(ctx, client, "readlink -- "+shellQuote(dir+"/"+entry))
-	if err != nil {
-		return "", false
-	}
-	if target := strings.TrimSpace(out); target != "" {
-		return target, true
-	}
-	return "", false
 }
 
 // appForEntry construit l'application affichée : si l'entrée est un lien

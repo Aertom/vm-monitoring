@@ -189,6 +189,7 @@ func collectAll(st *store.Store, cfg *config.Config, vms []model.VM) {
 				if old, ok := prev[vm.ID]; ok {
 					vm.Apps = old.Apps
 					vm.EtcHosts = old.EtcHosts
+					vm.OS = old.OS
 				}
 				return
 			}
@@ -196,6 +197,7 @@ func collectAll(st *store.Store, cfg *config.Config, vms []model.VM) {
 			vm.LastError = ""
 			vm.Apps = data.Apps
 			vm.EtcHosts = data.EtcHosts
+			vm.OS = data.OS
 		}(&vms[i])
 	}
 	wg.Wait()

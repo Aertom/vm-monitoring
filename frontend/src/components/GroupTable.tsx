@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Group } from '../types';
 import { apiService } from '../api/client';
-import { VmCells } from './VmCells';
+import { VmCells, allVisible } from './VmCells';
 import './GroupTable.css';
 
 interface GroupTableProps {
@@ -231,7 +231,7 @@ export const GroupTable: React.FC<GroupTableProps> = ({
               <tbody>
                 {(group.vms ?? []).map((vm) => (
                   <tr key={vm.id} className={`status-${vm.status}`}>
-                    <VmCells vm={vm} showGroup={false} />
+                    <VmCells vm={vm} visible={{ ...allVisible(), groupId: false }} />
                   </tr>
                 ))}
               </tbody>

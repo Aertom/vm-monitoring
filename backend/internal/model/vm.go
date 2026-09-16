@@ -66,6 +66,9 @@ type VM struct {
 	Status Status `json:"status"`
 	// Apps liste les applications/versions détectées lors de la dernière collecte.
 	Apps []AppVersion `json:"apps"`
+	// OS est le système d'exploitation issu de /etc/os-release
+	// (PRETTY_NAME, ex: "Ubuntu 22.04.5 LTS"). Vide si inconnu.
+	OS string `json:"os,omitempty"`
 	// EtcHosts contient les lignes brutes utiles du fichier /etc/hosts,
 	// utilisées pour la reconstruction des groupes.
 	EtcHosts []EtcHostsEntry `json:"etcHosts"`

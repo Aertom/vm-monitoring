@@ -10,6 +10,7 @@ const vms: VM[] = [
     ip: '10.0.0.1',
     family: 'sm',
     status: 'ok',
+    os: 'Ubuntu 22.04.5 LTS',
     apps: [
       { name: 'appli1', version: '1.2.3' },
       { name: 'appli2', version: '2.0' },
@@ -19,6 +20,9 @@ const vms: VM[] = [
 ];
 
 describe('VMTable', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
   it('affiche les VMs et filtre par famille', () => {
     render(<VMTable vms={vms} families={['sm', 'cm']} loading={false} />);
     expect(screen.getByText('sm-prod-01')).toBeInTheDocument();
@@ -82,6 +86,16 @@ describe('VMTable', () => {
     ];
     render(<VMTable vms={failed} families={['cm']} loading={false} />);
     expect(screen.getByTitle('connexion ssh 10.0.0.2: timeout')).toHaveTextContent('error');
+  });
+
+  it('affiche la colonne OS et masque les colonnes décochées', () => {
+    render(<VMTable vms={vms} families={['sm', 'cm']} loading={false} />);
+    expect(screen.getByText('Ubuntu 22.04.5 LTS')).toBeInTheDocument();
+    const panel = screen.getByText('Columns').closest('details') as HTMLElement;
+    const osBox = within(panel).getByLabelText('OS') as HTMLInputElement;
+    fireEvent.click(osBox);
+    expect(screen.queryByText('Ubuntu 22.04.5 LTS')).not.toBeInTheDocument();
+    expect(screen.getByText('sm-prod-01')).toBeInTheDocument();
   });
 
   it('cache unknown par défaut, filtre par hyperviseur', () => {

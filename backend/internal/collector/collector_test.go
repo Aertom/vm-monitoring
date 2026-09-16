@@ -144,3 +144,46 @@ func TestDialPasswordOnlyReachesNetwork(t *testing.T) {
 		t.Fatalf("le mot de passe seul devrait être accepté comme méthode, obtenu %v", err)
 	}
 }
+
+func TestParseLsLong(t *testing.T) {
+	out := "total 12\n" +
+		"drwxr-xr-x 2 root root 4096 Sep 11 10:00 appli1_1.2.3\n" +
+		"lrwxrwxrwx 1 root root   22 Sep 11 10:00 appli1 -> /appli/appli_1.2.3\n" +
+		"lrwxrwxrwx 1 root root    8 Sep 11 10:00 rel -> target_2.0\n" +
+		"\n" +
+		"ligne parasite\n"
+	got := ParseLsLong(out)
+	if len(got) != 4 {
+		t.Fatalf("attendu 4 entrées, obtenu %+v", got)
+	}
+	if got[0].name != "appli1_1.2.3" || got[0].isLink {
+		t.Fatalf("régulière: %+v", got[0])
+	}
+	if !got[1].isLink || got[1].name != "appli1" || got[1].target != "/appli/appli_1.2.3" {
+		t.Fatalf("lien absolu: %+v", got[1])
+	}
+	if !got[2].isLink || got[2].target != "target_2.0" {
+		t.Fatalf("lien relatif: %+v", got[2])
+	}
+	// Bout en bout : le lien affiche le basename de la cible.
+	if app := appForEntry(got[1].name, got[1].target); app.Name != "appli_1.2.3" {
+		t.Fatalf("affichage lien: %+v", app)
+	}
+}
+
+func TestParseOSRelease(t *testing.T) {
+	ubuntu := "PRETTY_NAME=\"Ubuntu 22.04.5 LTS\"\nNAME=\"Ubuntu\"\nVERSION_ID=\"22.04\"\n"
+	if got := ParseOSRelease(ubuntu); got != "Ubuntu 22.04.5 LTS" {
+		t.Fatalf("pretty: %q", got)
+	}
+	fallback := "# commentaire\nNAME=Debian\nVERSION_ID=\"12\"\n"
+	if got := ParseOSRelease(fallback); got != "Debian 12" {
+		t.Fatalf("fallback: %q", got)
+	}
+	if got := ParseOSRelease("NAME=Alpine\n"); got != "Alpine" {
+		t.Fatalf("nom seul: %q", got)
+	}
+	if got := ParseOSRelease("\n  \nfoo\n"); got != "" {
+		t.Fatalf("attendu vide, obtenu %q", got)
+	}
+}

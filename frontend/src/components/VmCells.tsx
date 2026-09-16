@@ -62,56 +62,104 @@ export const SshButton: React.FC<{ vm: VM }> = ({ vm }) => {
 const versionLabel = (vm: VM): string =>
   (vm.apps ?? []).map((a) => (a.version ? `${a.name} ${a.version}` : a.name)).join(', ');
 
-// Cellules communes aux tableaux VMs et groupes (mêmes infos partout).
-// showGroup=false dans les tableaux par groupe (redondant avec la carte).
-export const VmCells: React.FC<{ vm: VM; showGroup?: boolean }> = ({ vm, showGroup = true }) => (
-  <>
-    <td>{vm.hostname}</td>
-    <td>{vm.ip}</td>
-    <td title={vm.hypervisorName ? `type: ${vm.hypervisor || '?'}` : ''}>
-      {vm.hypervisorName || vm.hypervisor ? (
-        <span className="id-chip">{vm.hypervisorName || vm.hypervisor}</span>
-      ) : (
-        '-'
+// Colonnes des tableaux VMs (ordre d'affichage, labels pour show/hide).
+export const VM_COLUMNS = [
+  { key: 'hostname', label: 'Hostname', sortable: true },
+  { key: 'ip', label: 'IP Address', sortable: true },
+  { key: 'hypervisor', label: 'Hypervisor', sortable: true },
+  { key: 'os', label: 'OS', sortable: true },
+  { key: 'family', label: 'Family', sortable: true },
+  { key: 'status', label: 'Status', sortable: true },
+  { key: 'groupId', label: 'Group', sortable: true },
+  { key: 'version', label: 'Version', sortable: true },
+  { key: 'inUseBy', label: 'In Use By', sortable: true },
+  { key: 'ssh', label: 'SSH', sortable: false },
+] as const;
+
+export type VMColumnKey = (typeof VM_COLUMNS)[number]['key'];
+
+export type VMColumnVisibility = Record<VMColumnKey, boolean>;
+
+export const allVisible = (): VMColumnVisibility => ({
+  hostname: true,
+  ip: true,
+  hypervisor: true,
+  os: true,
+  family: true,
+  status: true,
+  groupId: true,
+  version: true,
+  inUseBy: true,
+  ssh: true,
+});
+
+// Cellules communes aux tableaux VMs et groupes (mêmes infos partout),
+// filtrées par visibilité (show/hide sur la page VMs).
+export const VmCells: React.FC<{ vm: VM; visible?: VMColumnVisibility }> = ({
+  vm,
+  visible,
+}) => {
+  const v = visible ?? allVisible();
+  return (
+    <>
+      {v.hostname && <td>{vm.hostname}</td>}
+      {v.ip && <td>{vm.ip}</td>}
+      {v.hypervisor && (
+        <td title={vm.hypervisorName ? `type: ${vm.hypervisor || '?'}` : ''}>
+          {vm.hypervisorName || vm.hypervisor ? (
+            <span className="id-chip">{vm.hypervisorName || vm.hypervisor}</span>
+          ) : (
+            '-'
+          )}
+        </td>
       )}
-    </td>
-    <td>
-      <span className={`family-badge family-${vm.family}`}>{vm.family}</span>
-    </td>
-    <td>
-      <span
-        className={`pill pill-${vm.status}`}
-        title={vm.status === 'error' && vm.lastError ? vm.lastError : undefined}
-      >
-        {vm.status}
-      </span>
-    </td>
-    {showGroup && (
-      <td title={vm.groupId || ''}>
-        {vm.groupName ? (
-          <strong>{vm.groupName}</strong>
-        ) : vm.groupId ? (
-          <span className="id-chip">{vm.groupId.slice(0, 8)}</span>
-        ) : (
-          '-'
-        )}
-      </td>
-    )}
-    <td title={versionLabel(vm)}>
-      {vm.apps?.length ? (
-        vm.apps.map((app, i) => (
-          <div key={i} className="app-version">
-            {app.name}
-            {app.version ? <span className="app-version-nb"> {app.version}</span> : null}
-          </div>
-        ))
-      ) : (
-        '-'
+      {v.os && <td>{vm.os || '-'}</td>}
+      {v.family && (
+        <td>
+          <span className={`family-badge family-${vm.family}`}>{vm.family}</span>
+        </td>
       )}
-    </td>
-    <td>{vm.inUseBy || '-'}</td>
-    <td>
-      <SshButton vm={vm} />
-    </td>
-  </>
-);
+      {v.status && (
+        <td>
+          <span
+            className={`pill pill-${vm.status}`}
+            title={vm.status === 'error' && vm.lastError ? vm.lastError : undefined}
+          >
+            {vm.status}
+          </span>
+        </td>
+      )}
+      {v.groupId && (
+        <td title={vm.groupId || ''}>
+          {vm.groupName ? (
+            <strong>{vm.groupName}</strong>
+          ) : vm.groupId ? (
+            <span className="id-chip">{vm.groupId.slice(0, 8)}</span>
+          ) : (
+            '-'
+          )}
+        </td>
+      )}
+      {v.version && (
+        <td title={versionLabel(vm)}>
+          {vm.apps?.length ? (
+            vm.apps.map((app, i) => (
+              <div key={i} className="app-version">
+                {app.name}
+                {app.version ? <span className="app-version-nb"> {app.version}</span> : null}
+              </div>
+            ))
+          ) : (
+            '-'
+          )}
+        </td>
+      )}
+      {v.inUseBy && <td>{vm.inUseBy || '-'}</td>}
+      {v.ssh && (
+        <td>
+          <SshButton vm={vm} />
+        </td>
+      )}
+    </>
+  );
+};

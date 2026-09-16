@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { VM, Family } from '../types';
-import { VmCells } from './VmCells';
+import { VmCells, VM_COLUMNS, VMColumnKey, VMColumnVisibility, allVisible } from './VmCells';
 import './VMTable.css';
 
 interface VMTableProps {
@@ -9,7 +9,24 @@ interface VMTableProps {
   loading: boolean;
 }
 
-type VMSortKey = 'hostname' | 'ip' | 'hypervisor' | 'family' | 'status' | 'groupId' | 'version' | 'inUseBy';
+type VMSortKey = Exclude<VMColumnKey, 'ssh'>;
+
+const STORAGE_KEY = 'vmtable-visible-v1';
+
+const loadVisible = (): VMColumnVisibility => {
+  const base = allVisible();
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return base;
+    const saved = JSON.parse(raw) as Partial<Record<VMColumnKey, boolean>>;
+    (Object.keys(base) as VMColumnKey[]).forEach((k) => {
+      if (typeof saved[k] === 'boolean') base[k] = saved[k] as boolean;
+    });
+  } catch {
+    // stockage indisponible : tout visible
+  }
+  return base;
+};
 
 const versionLabel = (vm: VM): string =>
   (vm.apps ?? []).map((a) => (a.version ? `${a.name} ${a.version}` : a.name)).join(', ');
@@ -35,6 +52,15 @@ export const VMTable: React.FC<VMTableProps> = ({
   const [showUnknown, setShowUnknown] = useState(false);
   const [sortKey, setSortKey] = useState<VMSortKey | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [visible, setVisible] = useState<VMColumnVisibility>(loadVisible);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(visible));
+    } catch {
+      // stockage indisponible : on ignore
+    }
+  }, [visible]);
 
   const toggleSort = (key: VMSortKey) => {
     if (sortKey !== key) {
@@ -49,6 +75,7 @@ export const VMTable: React.FC<VMTableProps> = ({
 
   const th = (label: string, key: VMSortKey) => (
     <th
+      key={key}
       onClick={() => toggleSort(key)}
       style={{ cursor: 'pointer', userSelect: 'none' }}
       aria-sort={sortKey !== key ? 'none' : sortDir === 'asc' ? 'ascending' : 'descending'}
@@ -118,6 +145,23 @@ export const VMTable: React.FC<VMTableProps> = ({
             />
             Show unknown
           </label>
+          <details className="columns-toggle">
+            <summary>Columns</summary>
+            <div className="columns-panel">
+              {VM_COLUMNS.map((col) => (
+                <label key={col.key} className="unknown-toggle">
+                  <input
+                    type="checkbox"
+                    checked={visible[col.key]}
+                    onChange={(e) =>
+                      setVisible((prev) => ({ ...prev, [col.key]: e.target.checked }))
+                    }
+                  />
+                  {col.label}
+                </label>
+              ))}
+            </div>
+          </details>
         </div>
       </div>
 
@@ -130,21 +174,19 @@ export const VMTable: React.FC<VMTableProps> = ({
         <table className="vm-table">
           <thead>
             <tr>
-              {th('Hostname', 'hostname')}
-              {th('IP Address', 'ip')}
-              {th('Hypervisor', 'hypervisor')}
-              {th('Family', 'family')}
-              {th('Status', 'status')}
-              {th('Group', 'groupId')}
-              {th('Version', 'version')}
-              {th('In Use By', 'inUseBy')}
-              <th>SSH</th>
+              {VM_COLUMNS.filter((col) => visible[col.key]).map((col) =>
+                col.sortable ? (
+                  th(col.label, col.key as VMSortKey)
+                ) : (
+                  <th key={col.key}>{col.label}</th>
+                )
+              )}
             </tr>
           </thead>
           <tbody>
             {sortedVMs.map((vm) => (
               <tr key={vm.id} className={`status-${vm.status}`}>
-                <VmCells vm={vm} showGroup />
+                <VmCells vm={vm} visible={visible} />
               </tr>
             ))}
           </tbody>

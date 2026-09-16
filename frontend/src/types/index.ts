@@ -23,6 +23,7 @@ export interface VM {
   hypervisorName?: string;
   groupId?: string;
   groupName?: string;
+  os?: string;
   apps?: AppVersion[];
   inUseBy?: string;
   checkedOutAt?: string;
