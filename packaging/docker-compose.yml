@@ -7,7 +7,7 @@
 services:
   backend:
     image: localhost/vm-monitoring-backend:@@TAG@@
-    user: "${UID:-65532}:${GID:-65532}"
+    user: "${UID}:${GID}"
     networks:
       vmmon:
         ipv4_address: 172.28.99.10
@@ -18,7 +18,7 @@ services:
       # Clé SSH pour la collecte des versions (chemin vu PAR LE CONTENEUR).
       # À décommenter après avoir copié votre clé dans ./id_rsa (chmod 600)
       # et renseigné privateKeyPath: "/ssh/key" dans config.yaml.
-      # - ./id_rsa:/ssh/key:ro,Z
+      - ./id_rsa:/ssh/key:ro,Z
     ports:
       - "${BACKEND_PORT:-8080}:8080"
     restart: unless-stopped
@@ -30,7 +30,7 @@ services:
     environment:
       BACKEND_UPSTREAM: 172.28.99.10:8080
     ports:
-      - "${FRONTEND_PORT:-80}:80"
+      - "${FRONTEND_PORT:-8081}:80"
     depends_on:
       - backend
     restart: unless-stopped
