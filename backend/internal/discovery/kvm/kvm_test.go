@@ -107,6 +107,31 @@ func TestGetVMDetails_EmptyName(t *testing.T) {
 	}
 }
 
+func TestParseVirshList_LocalizedHeader(t *testing.T) {
+	// En-tête allemand + VM éteinte : seules les lignes Id/- sont gardées.
+	out := "Kennung  Name      Status\n--------------------------\n 2    vm-de-01    running\n -    vm-de-02    shut off\n"
+	vms := parseVirshList(out)
+	if len(vms) != 2 || vms[0].Name != "vm-de-01" || vms[1].ID != "-" {
+		t.Fatalf("parse localisé incorrect: %+v", vms)
+	}
+}
+
+func TestListVMs_WithURI(t *testing.T) {
+	out := "Id Name State\n---\n 1 a running\n"
+	exec := &mockExecutor{outputs: map[string]string{
+		"virsh [-c qemu:///system list --all]": out,
+	}}
+	c, _ := NewClient(exec)
+	c.URI = "qemu:///system"
+	vms, err := c.ListVMs(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(vms) != 1 || vms[0].Name != "a" {
+		t.Fatalf("unexpected VMs: %+v", vms)
+	}
+}
+
 func TestParseDomIfAddr(t *testing.T) {
 	out := `Name       MAC address          Protocol     Address
 ---------------------------------------------------

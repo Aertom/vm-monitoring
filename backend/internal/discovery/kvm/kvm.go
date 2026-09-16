@@ -38,6 +38,9 @@ type CommandExecutor interface {
 // Client permet d'interroger un hôte KVM/libvirt pour lister ses VMs.
 type Client struct {
 	executor CommandExecutor
+	// URI force la connexion libvirt (ex: qemu:///system). Vide = défaut
+	// de virsh sur l'hôte (souvent qemu:///session, vide pour l'infra).
+	URI string
 }
 
 // NewClient crée un client de découverte KVM à partir d'un exécuteur de
@@ -49,18 +52,27 @@ func NewClient(executor CommandExecutor) (*Client, error) {
 	return &Client{executor: executor}, nil
 }
 
+// virshArgs préfixe -c URI quand forcé (système vs session).
+func (c *Client) virshArgs(args ...string) []string {
+	if c.URI != "" {
+		return append([]string{"-c", c.URI}, args...)
+	}
+	return args
+}
+
 // ListVMs exécute `virsh list --all` et parse la sortie pour extraire les
 // VMs présentes (nom, id, état). Le nombre de vCPU et la mémoire ne sont
 // pas résolus par cette méthode (voir GetVMDetails).
 func (c *Client) ListVMs(ctx context.Context) ([]VM, error) {
-	out, err := c.executor.Run(ctx, "virsh", "list", "--all")
+	out, err := c.executor.Run(ctx, "virsh", c.virshArgs("list", "--all")...)
 	if err != nil {
 		return nil, fmt.Errorf("kvm: running virsh list: %w", err)
 	}
 	return parseVirshList(out), nil
 }
 
-// parseVirshList parse la sortie texte de `virsh list --all`.
+// parseVirshList parse la sortie texte de `virsh list --all`, quelle que
+// soit la locale (en-tête ignoré sauf Id numérique ou "-" des VMs éteintes).
 //
 // Format attendu :
 //
@@ -77,14 +89,18 @@ func parseVirshList(out string) []VM {
 		if line == "" {
 			continue
 		}
-		// Ignore l'en-tête et la ligne de séparateurs.
-		if strings.HasPrefix(line, "Id") || strings.HasPrefix(line, "---") {
-			continue
-		}
 
 		fields := strings.Fields(line)
 		if len(fields) < 3 {
 			continue
+		}
+
+		// Seules les lignes de VMs sont gardées : Id numérique (allumée)
+		// ou "-" (éteinte). En-tête localisé et séparateurs exclus.
+		if fields[0] != "-" {
+			if _, err := strconv.Atoi(fields[0]); err != nil {
+				continue
+			}
 		}
 
 		id := fields[0]
@@ -108,7 +124,7 @@ func (c *Client) GetVMDetails(ctx context.Context, name string) (VM, error) {
 		return VM{}, fmt.Errorf("kvm: vm name is required")
 	}
 
-	out, err := c.executor.Run(ctx, "virsh", "dominfo", name)
+	out, err := c.executor.Run(ctx, "virsh", c.virshArgs("dominfo", name)...)
 	if err != nil {
 		return VM{}, fmt.Errorf("kvm: running virsh dominfo: %w", err)
 	}
@@ -166,7 +182,7 @@ func (c *Client) GetPrimaryIP(ctx context.Context, name string) (string, error) 
 	if name == "" {
 		return "", fmt.Errorf("kvm: vm name is required")
 	}
-	out, err := c.executor.Run(ctx, "virsh", "domifaddr", name)
+	out, err := c.executor.Run(ctx, "virsh", c.virshArgs("domifaddr", name)...)
 	if err != nil {
 		return "", fmt.Errorf("kvm: running virsh domifaddr: %w", err)
 	}

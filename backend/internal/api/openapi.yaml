@@ -1,0 +1,550 @@
+openapi: 3.0.3
+info:
+  title: VM Monitoring API
+  description: >-
+    Inventaire de VMs, groupes reconstruits depuis /etc/hosts,
+    checkout/checkin, découverte hyperviseurs et création de VMs.
+    Familles configurables (config.yaml: families). UI : GET /api/docs.
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+    description: Backend local
+paths:
+  /api/vms:
+    get:
+      summary: Liste les VMs
+      parameters:
+        - name: family
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: VMs connues
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/VM'
+  /api/groups:
+    get:
+      summary: Liste les groupes reconstruits
+      responses:
+        '200':
+          description: Groupes enrichis (membres + VMs + statut)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GroupResponse'
+  /api/families:
+    get:
+      summary: Familles configurées
+      responses:
+        '200':
+          description: Noms de familles dans l'ordre
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+              example: ["sm", "cm", "ws", "oa"]
+  /api/families/detect:
+    post:
+      summary: Déduit la famille d'un hostname (pré-remplissage)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [hostname]
+              properties:
+                hostname:
+                  type: string
+      responses:
+        '200':
+          description: Famille détectée
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  family:
+                    type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+  /api/groups/{id}/checkout:
+    post:
+      summary: Réserve un groupe (checkout)
+      parameters:
+        - $ref: '#/components/parameters/GroupId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user:
+                  type: string
+                inUseBy:
+                  type: string
+              description: user ou inUseBy (alias acceptés).
+      responses:
+        '200':
+          description: Groupe réservé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Déjà réservé par un autre utilisateur
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/groups/{id}/checkin:
+    post:
+      summary: Libère un groupe (checkin)
+      parameters:
+        - $ref: '#/components/parameters/GroupId'
+      responses:
+        '200':
+          description: Groupe libéré
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/groups/{id}/rename:
+    post:
+      summary: Renomme un groupe (alias, ID inchangé)
+      parameters:
+        - $ref: '#/components/parameters/GroupId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                  maxLength: 64
+      responses:
+        '200':
+          description: Groupe renommé
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/discovery:
+    get:
+      summary: Dernier rapport de découverte hyperviseurs
+      responses:
+        '200':
+          description: Rapport (vide si découverte désactivée)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiscoveryReport'
+        '404':
+          description: Endpoint non câblé (ne devrait pas arriver)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/hypervisors:
+    get:
+      summary: Hyperviseurs configurés (sans secrets)
+      responses:
+        '200':
+          description: Noms + types
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HypervisorRef'
+  /api/creation/options:
+    get:
+      summary: Pré-remplissage du formulaire de création
+      parameters:
+        - name: hypervisor
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Infra (sans secrets) + ISOs + presets
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreationOptions'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/creation/suggest-ip:
+    get:
+      summary: Première IPv4 libre du sous-réseau (passerelle sautée)
+      parameters:
+        - name: hypervisor
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: IP suggérée
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ip:
+                    type: string
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Sous-réseau plein
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/creation/check-ip:
+    get:
+      summary: Vérifie une IP (occupation + plage)
+      parameters:
+        - name: hypervisor
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: ip
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Diagnostic
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ip:
+                    type: string
+                  used:
+                    type: boolean
+                  inRange:
+                    type: boolean
+  /api/creation:
+    post:
+      summary: "Crée une VM puis power on (ESXi: vmkfstools+.vmx+vim-cmd, KVM: virt-install, Nutanix: acli)"
+      parameters:
+        - name: dryRun
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: "true = commandes générées sans exécution"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRequest'
+      responses:
+        '200':
+          description: Dry-run (commandes)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateResult'
+        '201':
+          description: VM créée
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '502':
+          description: Échec d'exécution distante (journal inclus)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /healthz:
+    get:
+      summary: Santé du backend (sonde Docker)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+components:
+  parameters:
+    GroupId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    BadRequest:
+      description: Requête invalide
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Introuvable
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+  schemas:
+    VM:
+      type: object
+      required: [id, hostname, ip, family, hypervisor, status, lastSeen]
+      properties:
+        id:
+          type: string
+        hostname:
+          type: string
+        ip:
+          type: string
+        family:
+          type: string
+          example: sm
+        hypervisor:
+          type: string
+          enum: [esxi, nutanix, kvm, static]
+        hypervisorName:
+          type: string
+          description: Nom logique dans hypervisors.yaml (découverte auto).
+        status:
+          type: string
+          enum: [ok, error, unknown]
+          description: Joignabilité SSH (pas l'état de réservation).
+        apps:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/AppVersion'
+        os:
+          type: string
+          description: PRETTY_NAME de /etc/os-release.
+        etcHosts:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/EtcHostsEntry'
+        lastSeen:
+          type: string
+          format: date-time
+        lastError:
+          type: string
+    AppVersion:
+      type: object
+      required: [name, version]
+      properties:
+        name:
+          type: string
+        version:
+          type: string
+    EtcHostsEntry:
+      type: object
+      required: [ip, hostname]
+      properties:
+        ip:
+          type: string
+        hostname:
+          type: string
+    GroupResponse:
+      allOf:
+        - $ref: '#/components/schemas/Group'
+        - type: object
+          required: [vms, status]
+          properties:
+            vms:
+              type: array
+              items:
+                $ref: '#/components/schemas/VM'
+            status:
+              type: string
+              enum: [available, checkedOut]
+              description: État de réservation (pas la santé SSH).
+    Group:
+      type: object
+      required: [id, members]
+      properties:
+        id:
+          type: string
+          description: Identifiant déterministe (sha1 des membres core).
+        name:
+          type: string
+          description: Alias libre (renommage).
+        members:
+          type: object
+          additionalProperties:
+            type: string
+          description: Famille -> ID de VM.
+          nullable: true
+        inUseBy:
+          type: string
+        checkedOutAt:
+          type: string
+          format: date-time
+    DiscoveryReport:
+      type: object
+      properties:
+        at:
+          type: string
+          format: date-time
+        total:
+          type: integer
+        sources:
+          type: object
+          additionalProperties:
+            type: integer
+        errors:
+          type: array
+          items:
+            type: string
+    HypervisorRef:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          enum: [esxi, nutanix, kvm]
+    CreationOptions:
+      type: object
+      properties:
+        kind:
+          type: string
+        datastore:
+          type: string
+        network:
+          type: string
+        isoDir:
+          type: string
+        subnet:
+          type: string
+        container:
+          type: string
+        isos:
+          type: array
+          items:
+            $ref: '#/components/schemas/ISOOption'
+        types:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/VMTypePreset'
+    ISOOption:
+      type: object
+      properties:
+        name:
+          type: string
+        file:
+          type: string
+        osVariant:
+          type: string
+        guestOS:
+          type: string
+        image:
+          type: string
+    VMTypePreset:
+      type: object
+      properties:
+        cpu:
+          type: integer
+        ramGB:
+          type: integer
+        diskGB:
+          type: integer
+    CreateRequest:
+      type: object
+      required: [hypervisor, family, name, type, isoFile, datastore, network, cpu, ramGB, diskGB, ip]
+      properties:
+        hypervisor:
+          type: string
+        family:
+          type: string
+        name:
+          type: string
+          pattern: '^[A-Za-z0-9_.-]+$'
+          maxLength: 64
+        type:
+          type: string
+        isoFile:
+          type: string
+        datastore:
+          type: string
+        network:
+          type: string
+        cpu:
+          type: integer
+          minimum: 1
+          maximum: 64
+        ramGB:
+          type: integer
+          minimum: 1
+          maximum: 1024
+        diskGB:
+          type: integer
+          minimum: 10
+          maximum: 4000
+        ip:
+          type: string
+          format: ipv4
+    CreateResult:
+      type: object
+      properties:
+        dryRun:
+          type: boolean
+        hypervisor:
+          type: string
+        name:
+          type: string
+        ip:
+          type: string
+        poweredOn:
+          type: boolean
+        commands:
+          type: array
+          items:
+            type: string
+        log:
+          type: string
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string

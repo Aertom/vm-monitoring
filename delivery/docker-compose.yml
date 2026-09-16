@@ -1,12 +1,12 @@
 # Production — images préchargées via `podman load` (voir HOWTO.md).
-# Source du delivery/docker-compose.yml généré par package.sh (0.5.0).
+# Source du delivery/docker-compose.yml généré par package.sh (20260916-1837).
 # Lancement : podman-compose up -d
 # Ports hôte modifiables (utile en rootless où <1024 est interdit) :
 #   FRONTEND_PORT=8080 BACKEND_PORT=8081 podman-compose up -d
 # Réseau dédié + IP fixe backend : aucun DNS requis (prod sans DNS OK).
 services:
   backend:
-    image: localhost/vm-monitoring-backend:0.5.0
+    image: localhost/vm-monitoring-backend:20260916-1837
     user: "${UID}:${GID}"
     networks:
       vmmon:
@@ -24,7 +24,7 @@ services:
     restart: unless-stopped
 
   frontend:
-    image: localhost/vm-monitoring-frontend:0.5.0
+    image: localhost/vm-monitoring-frontend:20260916-1837
     networks:
       - vmmon
     environment:

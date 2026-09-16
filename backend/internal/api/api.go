@@ -3,6 +3,7 @@
 package api
 
 import (
+	_ "embed"
 	"encoding/json"
 	"net/http"
 
@@ -14,6 +15,21 @@ import (
 	"github.com/Aertom/vm-monitoring/backend/internal/model"
 	"github.com/Aertom/vm-monitoring/backend/internal/store"
 )
+
+//go:embed openapi.yaml
+var openAPIDoc []byte
+
+// docsPage est une UI Swagger minimaliste (CDN) sur la spec embarquée.
+// Sans internet, importez /api/openapi.yaml dans https://editor.swagger.io.
+const docsPage = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>VM Monitoring API</title>
+<link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css">
+</head>
+<body><div id="swagger"></div>
+<script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+<script>SwaggerUIBundle({url: "/api/openapi.yaml", dom_id: "#swagger"});</script>
+</body></html>`
 
 // Server regroupe les dépendances de l'API HTTP.
 type Server struct {
@@ -58,6 +74,8 @@ func NewRouter(s *Server) http.Handler {
 		r.Get("/creation/suggest-ip", s.handleSuggestIP)
 		r.Get("/creation/check-ip", s.handleCheckIP)
 		r.Post("/creation", s.handleCreateVM)
+		r.Get("/openapi.yaml", s.handleOpenAPI)
+		r.Get("/docs", s.handleDocs)
 	})
 	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
@@ -201,6 +219,20 @@ func (s *Server) handleDiscovery(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, s.Discovery())
+}
+
+// handleOpenAPI sert la spécification OpenAPI embarquée.
+func (s *Server) handleOpenAPI(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/yaml")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(openAPIDoc)
+}
+
+// handleDocs sert l'UI Swagger (CDN) sur la spec.
+func (s *Server) handleDocs(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte(docsPage))
 }
 
 type groupResponse struct {

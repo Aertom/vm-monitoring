@@ -44,9 +44,15 @@ nutanix:
     password: "change-me"
     insecure: true
 
-# Hôtes KVM/libvirt (via virsh, local ou SSH)
+# Hôtes KVM/libvirt (virsh via SSH ; host vide = virsh local, impossible
+# depuis le conteneur backend qui n'a ni virsh ni libvirt).
+# Dépannage si 0 VM : libvirtd actif sur l'hôte ? user/SSH OK ?
+# Test manuel : ssh user@host "virsh -c qemu:///system list --all".
+# URI forcée à qemu:///system par défaut (la session user est vide
+# pour l'infra) ; surcharge possible via uri.
 kvm:
   - name: "kvm-01"
     host: "192.168.0.30"
     user: "qemu"
     port: 22
+    # uri: "qemu:///system"

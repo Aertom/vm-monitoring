@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/Aertom/vm-monitoring/backend/internal/config"
 	"github.com/Aertom/vm-monitoring/backend/internal/inventory"
 	"github.com/Aertom/vm-monitoring/backend/internal/model"
@@ -276,6 +278,42 @@ func TestFamiliesCustom(t *testing.T) {
 	}
 	if len(fams) != 2 || fams[0] != "sm" || fams[1] != "wks" {
 		t.Errorf("families=%v", fams)
+	}
+}
+
+func TestOpenAPIDocs(t *testing.T) {
+	srv := newTestServer()
+	router := NewRouter(srv)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/openapi.yaml", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("openapi.yaml = %d", rec.Code)
+	}
+	var doc struct {
+		Paths map[string]any `yaml:"paths"`
+	}
+	if err := yaml.Unmarshal(rec.Body.Bytes(), &doc); err != nil {
+		t.Fatalf("spec invalide: %v", err)
+	}
+	for _, p := range []string{
+		"/api/vms", "/api/groups", "/api/families", "/api/families/detect",
+		"/api/groups/{id}/checkout", "/api/groups/{id}/checkin",
+		"/api/groups/{id}/rename", "/api/discovery", "/api/hypervisors",
+		"/api/creation/options", "/api/creation/suggest-ip",
+		"/api/creation/check-ip", "/api/creation", "/healthz",
+	} {
+		if _, ok := doc.Paths[p]; !ok {
+			t.Errorf("chemin %q absent de la spec", p)
+		}
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/api/docs", nil)
+	rec = httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "swagger") {
+		t.Fatalf("docs = %d (pas d'UI)", rec.Code)
 	}
 }
 

@@ -153,17 +153,21 @@ func runCycle(st *store.Store, cfg *config.Config, hcfg *config.HypervisorsConfi
 		log.Printf("découverte: %s", e)
 	}
 	vms := inventory.MergeWithSet(cfg.StaticVMs, discovered, famSet)
+	// Chemin rapide : servir l'inventaire fusionné sans attendre la
+	// collecte SSH (lente/bloquante), qui enrichit au second passage.
+	st.ReplaceVMs(vms)
+	log.Printf("inventaire: %d VMs (%d découvertes), %d groupes",
+		len(vms), len(discovered), len(st.ListGroups()))
 	if !collector.SSHConfigured(cfg) {
 		log.Print("collecte SSH désactivée (ni clé ni mot de passe configurés)")
-		st.ReplaceVMs(vms)
 		return
 	}
-	collectAll(st, cfg, vms)
-	log.Printf("cycle: %d VMs (%d découvertes), %d groupes",
-		len(vms), len(discovered), len(st.ListGroups()))
+	collectAll(ctx, st, cfg, vms)
+	log.Printf("cycle: %d VMs collectées, %d groupes",
+		len(vms), len(st.ListGroups()))
 }
 
-func collectAll(st *store.Store, cfg *config.Config, vms []model.VM) {
+func collectAll(ctx context.Context, st *store.Store, cfg *config.Config, vms []model.VM) {
 	// Instantané précédent : en cas d'échec SSH on conserve apps/hosts connus.
 	prev := make(map[string]model.VM, len(vms))
 	for _, vm := range st.ListVMs() {
@@ -183,7 +187,9 @@ func collectAll(st *store.Store, cfg *config.Config, vms []model.VM) {
 			if vm.IP == "" {
 				return
 			}
-			ctx, cancel := context.WithTimeout(context.Background(), timeout)
+			// Le timeout du cycle prime : un cycle bloqué n'empêche jamais
+			// les suivants ni ne retient l'inventaire déjà publié.
+			ctx, cancel := context.WithTimeout(ctx, timeout)
 			defer cancel()
 			vcfg := cfg.SSH
 			if sv, ok := staticByID[vm.ID]; ok {

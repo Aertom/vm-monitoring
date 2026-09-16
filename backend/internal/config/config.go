@@ -119,6 +119,9 @@ type KVMConfig struct {
 	Network string `yaml:"network"`
 	IsoDir  string `yaml:"isoDir"`
 	Subnet  string `yaml:"subnet"`
+	// URI force la connexion libvirt (défaut qemu:///system ; vide =
+	// défaut de virsh, souvent la session utilisateur, vide pour l'infra).
+	URI string `yaml:"uri"`
 }
 
 // Load charge la configuration générale depuis le fichier YAML indiqué.

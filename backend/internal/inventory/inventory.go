@@ -10,6 +10,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -160,6 +161,13 @@ func discoverESXiSSH(ctx context.Context, label string, ex kvm.CommandExecutor) 
 		return nil, fmt.Errorf("esxi %s: %w", label, err)
 	}
 	raw := esxi.ParseVimCmdGetAllVMs(out)
+	if len(raw) == 0 {
+		snippet := strings.TrimSpace(out)
+		if len(snippet) > 300 {
+			snippet = snippet[:300] + "…"
+		}
+		log.Printf("esxi %s: getallvms sans VM parsable (%d octets), début brut: %q", label, len(out), snippet)
+	}
 	mapped := make([]DiscoveredVM, len(raw))
 	var wg sync.WaitGroup
 	sem := make(chan struct{}, 8)
@@ -238,8 +246,6 @@ func (localExecutor) Run(ctx context.Context, name string, args ...string) (stri
 	return string(out), nil
 }
 
-// localExecutor exécute virsh en local (backend colocalisé avec libvirt).
-
 // discoverKVM liste les domaines libvirt en local ou via SSH.
 func discoverKVM(ctx context.Context, cfg config.KVMConfig, sshCfg config.SSHConfig) ([]DiscoveredVM, error) {
 	label := displayName(cfg.Name, cfg.Host)
@@ -258,6 +264,12 @@ func discoverKVM(ctx context.Context, cfg config.KVMConfig, sshCfg config.SSHCon
 	c, err := kvm.NewClient(ex)
 	if err != nil {
 		return nil, fmt.Errorf("kvm %s: %w", label, err)
+	}
+	// qemu:///system par défaut : sans URI, virsh tombe sur la session
+	// de l'utilisateur (vide pour l'infra).
+	c.URI = cfg.URI
+	if c.URI == "" {
+		c.URI = "qemu:///system"
 	}
 	return discoverKVMWithExecutor(ctx, label, c)
 }

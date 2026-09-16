@@ -176,11 +176,28 @@ func runCmd(ctx context.Context, client *ssh.Client, cmd string) (string, error)
 		return "", err
 	}
 	defer s.Close()
-	out, err := s.CombinedOutput(cmd)
-	if err != nil {
-		return "", fmt.Errorf("%s: %w", cmd, err)
+	// CombinedOutput n'écoute pas ctx : on l'interrompt via Close à l'expiration,
+	// sinon une commande bloquée fige le cycle entier.
+	type res struct {
+		out string
+		err error
 	}
-	return string(out), nil
+	ch := make(chan res, 1)
+	go func() {
+		out, err := s.CombinedOutput(cmd)
+		ch <- res{string(out), err}
+	}()
+	select {
+	case <-ctx.Done():
+		s.Close()
+		<-ch
+		return "", fmt.Errorf("%s: %w", cmd, ctx.Err())
+	case r := <-ch:
+		if r.err != nil {
+			return "", fmt.Errorf("%s: %w", cmd, r.err)
+		}
+		return r.out, nil
+	}
 }
 
 // ResolveAuth détermine user/mot de passe effectifs : valeurs par VM

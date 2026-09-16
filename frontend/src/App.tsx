@@ -104,6 +104,14 @@ const App: React.FC = () => {
       <footer className="app-footer">
         <p>
           API Base URL: {process.env.REACT_APP_API_URL || 'http://localhost:8080'}
+          {' | '}
+          <a
+            href={`${process.env.REACT_APP_API_URL === 'same-origin' ? '' : process.env.REACT_APP_API_URL || 'http://localhost:8080'}/api/docs`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            API docs
+          </a>
         </p>
       </footer>
     </div>
