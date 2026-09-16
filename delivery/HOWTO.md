@@ -57,6 +57,13 @@ podman images | grep vm-monitoring
    `:Z` (majuscule) = relabel SELinux privé au conteneur, adapté à une clé.
 3. Rien à configurer côté frontend : il appelle l'API en relatif
    (`/api/...`) via le proxy nginx intégré.
+4. Création de VMs (onglet Create, optionnel) : renseignez `vmCreation.yaml`
+   (ISOs RedHat réellement présentes, presets par type) et, par entrée dans
+   `hypervisors.yaml`, `datastore`/`network`/`isoDir` (+ `container` Nutanix,
+   `poolDir` KVM) et `subnet` (CIDR pour suggestion/validation d'IP).
+   L'onglet pré-remplit le formulaire ; commencez par `Dry run` (commandes
+   sans exécution). ESXi = vmkfstools+.vmx+vim-cmd en SSH, KVM =
+   virt-install en SSH, Nutanix = acli sur la CVM, puis power on.
 
 ## 3. Lancer
 

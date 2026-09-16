@@ -1,0 +1,40 @@
+# VM Monitoring - vmCreation Example (onglet Create)
+# Copier vers vmCreation.yaml (ignoré par git) et adapter :
+#   cp vmCreation.example.yaml vmCreation.yaml
+# Schéma : isos[{name,file,osVariant,guestOS,image}],
+#   types{<type>: {cpu,ramGB,diskGB}},
+#   esxiHWVersion, esxiFirmware, kvmGraphics.
+# Les chemins de base (datastore, network, isoDir, subnet...) vivent dans
+# hypervisors.yaml, par entrée d'hyperviseur.
+
+# Images RedHat proposées (file = nom du fichier ISO sur l'hyperviseur ;
+# osVariant = virt-install KVM ; guestOS = ESXi ; image = nom image Nutanix).
+isos:
+  - name: "RHEL 9.5"
+    file: "rhel-9.5-x86_64-dvd.iso"
+    osVariant: "rhel9.0"
+    guestOS: "rhel9_64Guest"
+    image: "rhel95"
+  - name: "RHEL 8.10"
+    file: "rhel-8.10-x86_64-dvd.iso"
+    osVariant: "rhel8.5"
+    guestOS: "rhel8_64Guest"
+    image: "rhel810"
+
+# Ressources par type (pré-remplies à la sélection du type).
+types:
+  serveur:
+    cpu: 4
+    ramGB: 16
+    diskGB: 100
+  workstation:
+    cpu: 2
+    ramGB: 8
+    diskGB: 60
+
+# Tunables ESXi (vmx) : version matérielle v8 = 20, firmware efi|bios.
+esxiHWVersion: "20"
+esxiFirmware: "efi"
+
+# Console KVM (virt-install --graphics) : vnc (finir l'install au VNC).
+kvmGraphics: "vnc"

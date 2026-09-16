@@ -221,6 +221,29 @@ Release a group back to available state.
 }
 ```
 
+### GET /api/hypervisors
+
+List configured hypervisors (names + types, no secrets).
+
+### POST /api/families/detect
+
+Detect the family of a hostname (prefill).
+
+**Request Body:** `{"hostname": "cm-prod-09"}` → `{"family": "cm"}`
+
+### GET /api/creation/options?hypervisor={name}
+
+Prefill data for the Create form (infra paths, ISOs, resource presets).
+
+### GET /api/creation/suggest-ip?hypervisor={name}
+
+First free IPv4 in the hypervisor subnet (gateway skipped, inventory excluded).
+
+### POST /api/creation[?dryRun=true]
+
+Create a VM (ESXi via vmkfstools+.vmx+vim-cmd, KVM via virt-install,
+Nutanix via acli, then power on). With `dryRun=true`, commands only.
+
 ## Technical Decisions
 
 ### VM Family Discovery

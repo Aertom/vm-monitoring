@@ -23,12 +23,14 @@ import (
 	"github.com/Aertom/vm-monitoring/backend/internal/config"
 	"github.com/Aertom/vm-monitoring/backend/internal/inventory"
 	"github.com/Aertom/vm-monitoring/backend/internal/model"
+	"github.com/Aertom/vm-monitoring/backend/internal/provision"
 	"github.com/Aertom/vm-monitoring/backend/internal/store"
 )
 
 func main() {
 	configPath := flag.String("config", "config.yaml", "chemin du fichier de configuration")
 	hypervisorsPath := flag.String("hypervisors", "hypervisors.yaml", "chemin des hyperviseurs (absent = découverte désactivée)")
+	creationPath := flag.String("vmcreation", "vmCreation.yaml", "chemin des presets de création (absent = défauts)")
 	healthcheck := flag.Bool("healthcheck", false, "vérifie /healthz local et quitte (pour HEALTHCHECK Docker)")
 	healthURL := flag.String("health-url", "http://127.0.0.1:8080/healthz", "URL sondée par --healthcheck")
 	flag.Parse()
@@ -47,6 +49,12 @@ func main() {
 	}
 	log.Printf("hyperviseurs: %d esxi, %d nutanix, %d kvm",
 		len(hcfg.ESXi), len(hcfg.Nutanix), len(hcfg.KVM))
+
+	ccfg, err := config.LoadCreation(*creationPath)
+	if err != nil {
+		log.Fatalf("chargement création: %v", err)
+	}
+	log.Printf("création: %d isos, types %v", len(ccfg.ISOs), provision.SortedKeys(ccfg.Types))
 
 	famSet, err := model.NewFamilySetWithExclude(cfg.Families, cfg.FamilyExclude)
 	if err != nil {
@@ -68,7 +76,7 @@ func main() {
 
 	go collectLoop(st, cfg, hcfg, famSet, &lastReport)
 
-	srv := &api.Server{Store: st, Families: famSet, Discovery: func() inventory.Report {
+	srv := &api.Server{Store: st, Families: famSet, HVs: hcfg, Creation: ccfg, SSHCfg: cfg.SSH, Discovery: func() inventory.Report {
 		rep, _ := lastReport.Load().(inventory.Report)
 		return rep
 	}}

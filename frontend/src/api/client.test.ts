@@ -81,4 +81,34 @@ describe('apiService', () => {
     await expect(apiService.renameGroup('g1', 'prod')).resolves.toEqual(group);
     expect(mockPost).toHaveBeenCalledWith('/groups/g1/rename', { name: 'prod' });
   });
+
+  it('creation : hypervisors, detect, options, suggest, check, create', async () => {
+    mockGet.mockResolvedValue({ data: [{ name: 'esx-08', type: 'esxi' }] });
+    await expect(apiService.listHypervisors()).resolves.toEqual([{ name: 'esx-08', type: 'esxi' }]);
+    expect(mockGet).toHaveBeenCalledWith('/hypervisors');
+
+    mockPost.mockResolvedValue({ data: { family: 'sm' } });
+    await expect(apiService.detectFamily('x-sm-1')).resolves.toBe('sm');
+
+    mockGet.mockResolvedValue({ data: { kind: 'esxi' } });
+    await apiService.creationOptions('esx-08');
+    expect(mockGet).toHaveBeenCalledWith('/creation/options', { params: { hypervisor: 'esx-08' } });
+
+    mockGet.mockResolvedValue({ data: { ip: '10.9.0.2' } });
+    await expect(apiService.suggestIP('esx-08')).resolves.toBe('10.9.0.2');
+
+    mockGet.mockResolvedValue({ data: { ip: '10.9.0.2', used: false, inRange: true } });
+    await apiService.checkIP('esx-08', '10.9.0.2');
+    expect(mockGet).toHaveBeenCalledWith('/creation/check-ip', { params: { hypervisor: 'esx-08', ip: '10.9.0.2' } });
+
+    const req = {
+      hypervisor: 'esx-08', family: 'sm', name: 'sm-1', type: 'serveur',
+      isoFile: 'r.iso', datastore: 'ds', network: 'net', cpu: 2, ramGB: 8, diskGB: 60, ip: '10.9.0.2',
+    };
+    mockPost.mockResolvedValue({ data: { dryRun: true } });
+    await apiService.createVM(req, true);
+    expect(mockPost).toHaveBeenCalledWith('/creation?dryRun=true', req);
+    await apiService.createVM(req, false);
+    expect(mockPost).toHaveBeenCalledWith('/creation', req);
+  });
 });

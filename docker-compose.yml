@@ -19,6 +19,7 @@ services:
     volumes:
       - ./config.yaml:/config.yaml:ro,z
       - ./hypervisors.yaml:/hypervisors.yaml:ro,z
+      - ./vmCreation.yaml:/vmCreation.yaml:ro,z
     ports:
       - "${BACKEND_PORT:-8080}:8080"
     restart: unless-stopped

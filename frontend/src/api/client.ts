@@ -1,6 +1,51 @@
 import axios, { AxiosInstance } from 'axios';
 import { VM, Group, Family } from '../types';
 
+export interface HypervisorRef {
+  name: string;
+  type: string;
+}
+
+export interface ISOOption {
+  name: string;
+  file: string;
+}
+
+export interface CreationOptions {
+  kind: string;
+  datastore: string;
+  network: string;
+  isoDir: string;
+  subnet: string;
+  container?: string;
+  isos: ISOOption[];
+  types: Record<string, { cpu: number; ramGB: number; diskGB: number }>;
+}
+
+export interface CreateRequest {
+  hypervisor: string;
+  family: string;
+  name: string;
+  type: string;
+  isoFile: string;
+  datastore: string;
+  network: string;
+  cpu: number;
+  ramGB: number;
+  diskGB: number;
+  ip: string;
+}
+
+export interface CreateResult {
+  dryRun: boolean;
+  hypervisor: string;
+  name: string;
+  ip: string;
+  poweredOn: boolean;
+  commands?: string[];
+  log?: string;
+}
+
 const RAW_API_URL = process.env.REACT_APP_API_URL;
 // 'same-origin' = appels relatifs (/api/...) via le nginx du compose (proxy /api).
 // Utile en prod mono-origine ; en dev local garder http://localhost:8080.
@@ -86,5 +131,50 @@ export const apiService = {
       console.error(`Failed to rename group ${groupId}:`, error);
       throw error;
     }
+  },
+
+  // Hyperviseurs configurés (noms + types, sans secrets)
+  async listHypervisors(): Promise<HypervisorRef[]> {
+    const response = await apiClient.get<HypervisorRef[]>('/hypervisors');
+    return response.data || [];
+  },
+
+  // Déduit la famille d'un hostname (pré-remplissage)
+  async detectFamily(hostname: string): Promise<Family> {
+    const response = await apiClient.post<{ family: Family }>('/families/detect', { hostname });
+    return response.data.family;
+  },
+
+  // Options de création pré-remplies pour un hyperviseur
+  async creationOptions(hypervisor: string): Promise<CreationOptions> {
+    const response = await apiClient.get<CreationOptions>('/creation/options', {
+      params: { hypervisor },
+    });
+    return response.data;
+  },
+
+  // Première IP libre du sous-réseau
+  async suggestIP(hypervisor: string): Promise<string> {
+    const response = await apiClient.get<{ ip: string }>('/creation/suggest-ip', {
+      params: { hypervisor },
+    });
+    return response.data.ip;
+  },
+
+  // Vérifie une IP (occupation + plage)
+  async checkIP(hypervisor: string, ip: string): Promise<{ ip: string; used: boolean; inRange: boolean }> {
+    const response = await apiClient.get('/creation/check-ip', {
+      params: { hypervisor, ip },
+    });
+    return response.data;
+  },
+
+  // Crée une VM (dryRun = commandes sans exécution)
+  async createVM(req: CreateRequest, dryRun: boolean): Promise<CreateResult> {
+    const response = await apiClient.post<CreateResult>(
+      `/creation${dryRun ? '?dryRun=true' : ''}`,
+      req
+    );
+    return response.data;
   },
 };

@@ -11,7 +11,7 @@
 # Contenu généré dans delivery/ :
 #   vm-monitoring-backend.tar.gz / vm-monitoring-frontend.tar.gz (podman save)
 #   docker-compose.yml (références :TAG), config.yaml, hypervisors.yaml,
-#   HOWTO.md, VERSION (tag + date + sha git).
+#   vmCreation.yaml, HOWTO.md, VERSION (tag + date + sha git).
 # Sources : Dockerfiles du repo + packaging/*. Les tars sont ignorés par git
 # (voir .gitignore) : delivery/ se régénère à volonté avec ce script.
 set -euo pipefail
@@ -40,6 +40,8 @@ if [[ "$SKIP_TESTS" -eq 0 ]]; then
   echo "==> tests backend"
   export PATH="$HOME/golang_1.22/go/bin:$PATH"
   (cd backend && go test ./... >/dev/null) || { echo "tests backend en échec" >&2; exit 1; }
+  echo "==> tests frontend"
+  (cd frontend && npx tsc --noEmit && CI=true npm test >/dev/null 2>&1) || { echo "tests frontend en échec" >&2; exit 1; }
 else
   echo "==> tests sautés (--skip-tests)"
 fi
@@ -56,7 +58,7 @@ mkdir -p delivery
 podman save "${BACKEND_IMG}" | gzip > delivery/vm-monitoring-backend.tar.gz
 podman save "${FRONTEND_IMG}" | gzip > delivery/vm-monitoring-frontend.tar.gz
 sed "s/@@TAG@@/${TAG}/g" packaging/docker-compose.yml > delivery/docker-compose.yml
-cp packaging/config.yaml packaging/hypervisors.yaml packaging/HOWTO.md delivery/
+cp packaging/config.yaml packaging/hypervisors.yaml packaging/vmCreation.yaml packaging/HOWTO.md delivery/
 GIT_SHA="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
 {
   echo "TAG=${TAG}"

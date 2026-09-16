@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
+	"github.com/Aertom/vm-monitoring/backend/internal/config"
 	"github.com/Aertom/vm-monitoring/backend/internal/inventory"
 	"github.com/Aertom/vm-monitoring/backend/internal/model"
 	"github.com/Aertom/vm-monitoring/backend/internal/store"
@@ -21,6 +22,12 @@ type Server struct {
 	Discovery func() inventory.Report
 	// Families est le registre des familles (nil = défaut).
 	Families *model.FamilySet
+	// HVs liste les hyperviseurs (nil = pas de création/liste).
+	HVs *config.HypervisorsConfig
+	// Creation pilote l'onglet Create (nil = création désactivée).
+	Creation *config.CreationConfig
+	// SSHCfg sert aux exécutions distantes (création).
+	SSHCfg config.SSHConfig
 }
 
 func (s *Server) families() *model.FamilySet {
@@ -45,6 +52,12 @@ func NewRouter(s *Server) http.Handler {
 		r.Post("/groups/{id}/checkin", s.handleCheckin)
 		r.Post("/groups/{id}/rename", s.handleRename)
 		r.Get("/discovery", s.handleDiscovery)
+		r.Get("/hypervisors", s.handleListHypervisors)
+		r.Post("/families/detect", s.handleDetectFamily)
+		r.Get("/creation/options", s.handleCreationOptions)
+		r.Get("/creation/suggest-ip", s.handleSuggestIP)
+		r.Get("/creation/check-ip", s.handleCheckIP)
+		r.Post("/creation", s.handleCreateVM)
 	})
 	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})

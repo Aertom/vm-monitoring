@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
+	"github.com/Aertom/vm-monitoring/backend/internal/config"
 	"github.com/Aertom/vm-monitoring/backend/internal/inventory"
 	"github.com/Aertom/vm-monitoring/backend/internal/model"
 	"github.com/Aertom/vm-monitoring/backend/internal/store"
@@ -274,5 +276,73 @@ func TestFamiliesCustom(t *testing.T) {
 	}
 	if len(fams) != 2 || fams[0] != "sm" || fams[1] != "wks" {
 		t.Errorf("families=%v", fams)
+	}
+}
+
+func creationTestServer() *Server {
+	srv := newTestServer()
+	srv.HVs = &config.HypervisorsConfig{
+		ESXi: []config.ESXiConfig{{
+			Name: "esx-08", URL: "https://192.168.0.10", Username: "root",
+			Datastore: "datastore1", Network: "VM Network", IsoDir: "iso", Subnet: "10.9.0.0/24",
+		}},
+	}
+	srv.Creation = &config.CreationConfig{
+		ISOs:          []config.ISOEntry{{Name: "RHEL 9.5", File: "rhel-9.5.iso", GuestOS: "rhel9_64Guest"}},
+		Types:         map[string]config.VMTypePreset{"serveur": {CPU: 4, RAMGB: 16, DiskGB: 100}},
+		ESXiHWVersion: "20", ESXiFirmware: "efi",
+	}
+	srv.Families = model.DefaultFamilies()
+	return srv
+}
+
+func TestCreationEndpoints(t *testing.T) {
+	srv := creationTestServer()
+	router := NewRouter(srv)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/hypervisors", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "esx-08") {
+		t.Fatalf("hypervisors = %d %s", rec.Code, rec.Body.String())
+	}
+	if strings.Contains(rec.Body.String(), "change-me") || strings.Contains(rec.Body.String(), "Password") {
+		t.Fatalf("secrets exposés: %s", rec.Body.String())
+	}
+
+	req = httptest.NewRequest(http.MethodPost, "/api/families/detect", bytes.NewBufferString(`{"hostname":"x-sm-1"}`))
+	rec = httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if !strings.Contains(rec.Body.String(), `"sm"`) {
+		t.Fatalf("detect = %s", rec.Body.String())
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/api/creation/options?hypervisor=esx-08", nil)
+	rec = httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "datastore1") {
+		t.Fatalf("options = %d %s", rec.Code, rec.Body.String())
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/api/creation/suggest-ip?hypervisor=esx-08", nil)
+	rec = httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if !strings.Contains(rec.Body.String(), "10.9.0.2") {
+		t.Fatalf("suggest = %s", rec.Body.String())
+	}
+
+	body := `{"hypervisor":"esx-08","family":"sm","name":"sm-new-01","type":"serveur","isoFile":"rhel-9.5.iso","datastore":"datastore1","network":"VM Network","cpu":4,"ramGB":16,"diskGB":100,"ip":"10.9.0.50"}`
+	req = httptest.NewRequest(http.MethodPost, "/api/creation?dryRun=true", bytes.NewBufferString(body))
+	rec = httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "vim-cmd solo/registervm") {
+		t.Fatalf("dryRun = %d %s", rec.Code, rec.Body.String())
+	}
+
+	req = httptest.NewRequest(http.MethodPost, "/api/creation", bytes.NewBufferString(`{"hypervisor":"nope"}`))
+	rec = httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("invalide = %d, attendu 400", rec.Code)
 	}
 }

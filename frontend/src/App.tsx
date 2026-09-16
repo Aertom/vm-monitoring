@@ -3,6 +3,7 @@ import { VM, Group, Family, enrichVMsWithCheckout } from './types';
 import { apiService } from './api/client';
 import { VMTable } from './components/VMTable';
 import { GroupTable } from './components/GroupTable';
+import { CreatePage } from './components/CreatePage';
 import './App.css';
 
 const App: React.FC = () => {
@@ -11,7 +12,7 @@ const App: React.FC = () => {
   const [families, setFamilies] = useState<Family[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [page, setPage] = useState<'vms' | 'groups'>('vms');
+  const [page, setPage] = useState<'vms' | 'groups' | 'create'>('vms');
 
   const fetchData = async () => {
     setLoading(true);
@@ -78,16 +79,25 @@ const App: React.FC = () => {
           >
             Groups
           </button>
+          <button
+            className={page === 'create' ? 'tab active' : 'tab'}
+            aria-current={page === 'create' ? 'page' : undefined}
+            onClick={() => setPage('create')}
+          >
+            Create
+          </button>
         </nav>
 
         {page === 'vms' ? (
           <VMTable vms={enrichedVMs} families={families} loading={loading} />
-        ) : (
+        ) : page === 'groups' ? (
           <GroupTable
             groups={groups}
             onGroupsUpdated={handleGroupsUpdated}
             loading={loading}
           />
+        ) : (
+          <CreatePage />
         )}
       </main>
 

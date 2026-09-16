@@ -14,6 +14,7 @@ services:
     volumes:
       - ./config.yaml:/config.yaml:ro,z
       - ./hypervisors.yaml:/hypervisors.yaml:ro,z
+      - ./vmCreation.yaml:/vmCreation.yaml:ro,z
       # Clé SSH pour la collecte des versions (chemin vu PAR LE CONTENEUR).
       # À décommenter après avoir copié votre clé dans ./id_rsa (chmod 600)
       # et renseigné privateKeyPath: "/ssh/key" dans config.yaml.

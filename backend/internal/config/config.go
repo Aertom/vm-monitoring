@@ -84,23 +84,41 @@ type ESXiConfig struct {
 	// uniquement, défaut) ou "ssh" (vim-cmd via SSH, ESXi standalone v8 ;
 	// utilise username + la clé ssh.* globale).
 	Mode string `yaml:"mode"`
+	// Champs création (onglet Create) : datastore, portgroup réseau,
+	// dossier des ISOs (relatif à la racine du datastore), sous-réseau
+	// IPv4 des VMs (CIDR, pour suggestion/validation d'IP).
+	Datastore string `yaml:"datastore"`
+	Network   string `yaml:"network"`
+	IsoDir    string `yaml:"isoDir"`
+	Subnet    string `yaml:"subnet"`
 }
 
 // NutanixConfig décrit l'accès à un cluster Nutanix AHV via l'API Prism.
 type NutanixConfig struct {
-	Name     string `yaml:"name"`
-	URL      string `yaml:"url"`
-	Username string `yaml:"username"`
-	Password string `yaml:"password"`
-	Insecure bool   `yaml:"insecure"`
+	Name      string `yaml:"name"`
+	URL       string `yaml:"url"`
+	Username  string `yaml:"username"`
+	Password  string `yaml:"password"`
+	Insecure  bool   `yaml:"insecure"`
+	Container string `yaml:"container"`
+	Network   string `yaml:"network"`
+	Subnet    string `yaml:"subnet"`
+	// SSHHost/SSHUser ciblent la CVM pour acli (défaut : host / ssh.user).
+	SSHHost string `yaml:"sshHost"`
+	SSHUser string `yaml:"sshUser"`
 }
 
 // KVMConfig décrit l'accès à un hôte KVM/libvirt via SSH+virsh.
 type KVMConfig struct {
-	Name string `yaml:"name"`
-	Host string `yaml:"host"`
-	User string `yaml:"user"`
-	Port int    `yaml:"port"`
+	Name    string `yaml:"name"`
+	Host    string `yaml:"host"`
+	User    string `yaml:"user"`
+	Port    int    `yaml:"port"`
+	PoolDir string `yaml:"poolDir"`
+	// Network est passé tel quel à virt-install (ex: "bridge=br0").
+	Network string `yaml:"network"`
+	IsoDir  string `yaml:"isoDir"`
+	Subnet  string `yaml:"subnet"`
 }
 
 // Load charge la configuration générale depuis le fichier YAML indiqué.
